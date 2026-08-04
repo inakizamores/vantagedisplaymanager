@@ -28,7 +28,7 @@ jobs:
         id: ver
         shell: pwsh
         run: |
-          $v = if ($env:GITHUB_REF -like 'refs/tags/v*') { $env:GITHUB_REF -replace '^refs/tags/v', '' } else { '0.0.0-ci' }
+          $v = if ($env:GITHUB_REF -like 'refs/tags/v*') { $env:GITHUB_REF -replace '^refs/tags/v', '' } else { '0.0.1-ci' }
           "version=$v" >> $env:GITHUB_OUTPUT
           Write-Host "Version: $v"
 
