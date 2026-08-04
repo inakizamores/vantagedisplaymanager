@@ -54,20 +54,24 @@ public static class LayoutThumbnail
                     fill, null, new RectangleGeometry(rect, 1.5, 1.5)));
 
                 // HDR badge: small text label, top-left corner with even padding, unscaled.
+                // Inverts against the panel it sits on, the same way accent buttons invert
+                // their label — white is unreadable on the light dark-mode accent shade.
                 if (d.HdrOn)
                 {
+                    var badgeBrush = Freeze(new SolidColorBrush(
+                        ContrastText(d.Primary ? accent : Color.FromRgb(0x6E, 0x6E, 0x6E))));
                     var label = new FormattedText(
                         "HDR",
                         System.Globalization.CultureInfo.InvariantCulture,
                         FlowDirection.LeftToRight,
                         new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal),
                         6.0,
-                        Brushes.White,
+                        badgeBrush,
                         pixelsPerDip: 1.0);
                     const double pad = 3;
                     var geometry = label.BuildGeometry(new Point(rect.X + pad, rect.Y + pad));
                     geometry.Freeze();
-                    group.Children.Add(new GeometryDrawing(Freeze(new SolidColorBrush(Colors.White)), null, geometry));
+                    group.Children.Add(new GeometryDrawing(badgeBrush, null, geometry));
                 }
 
                 // Stand: small centered pedestal under the panel.
@@ -86,6 +90,27 @@ public static class LayoutThumbnail
         var image = new DrawingImage(group);
         image.Freeze();
         return image;
+    }
+
+    /// <summary>
+    /// Black or white, whichever reads better on <paramref name="background"/>. Uses WCAG
+    /// relative luminance; 0.179 is the point where contrast against black and against white
+    /// are equal.
+    /// </summary>
+    private static Color ContrastText(Color background)
+    {
+        static double Linear(byte value)
+        {
+            var channel = value / 255.0;
+            return channel <= 0.03928 ? channel / 12.92 : Math.Pow((channel + 0.055) / 1.055, 2.4);
+        }
+
+        var luminance =
+            0.2126 * Linear(background.R) +
+            0.7152 * Linear(background.G) +
+            0.0722 * Linear(background.B);
+
+        return luminance > 0.179 ? Colors.Black : Colors.White;
     }
 
     private static SolidColorBrush Freeze(SolidColorBrush brush)

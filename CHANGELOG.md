@@ -3,14 +3,6 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
-## [Unreleased]
-
-### Reverted
-- The accent-palette rework shipped in 0.4.0-beta is backed out. Accent-filled surfaces go
-  back to the base accent color with white text, and the HDR badge on profile thumbnails goes
-  back to plain white. 0.4.0-beta still contains the change; this reverts it for whatever
-  ships next.
-
 ## [0.4.0-beta] — 2026-08-04
 
 ### Changed
