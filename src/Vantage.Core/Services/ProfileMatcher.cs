@@ -72,6 +72,9 @@ public static class ProfileMatcher
             if (wanted.DpiScalePercent is { } dpiWanted && actual.Dpi is { } actualDpi)
                 Check(diffs, "dpiScale", $"{dpiWanted}%", $"{actualDpi.CurrentPercent}%", dpiWanted == actualDpi.CurrentPercent);
 
+            if (wanted.ColorDepthBpc is { } bpcWanted && actual.OutputBpc is { } bpcActual)
+                Check(diffs, "colorDepth", $"{bpcWanted} bpc", $"{bpcActual} bpc", bpcWanted == bpcActual);
+
             results.Add(new DisplayMatchResult
             {
                 ProfileIdentity = wanted.Identity,

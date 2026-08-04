@@ -3,6 +3,15 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [0.3.0-beta] — 2026-08-04
+
+### Added
+- **Output color depth (bpc) is now part of profiles** — set through NVIDIA's own API
+  (NVAPI `Disp_ColorControl`) and verified by re-query. HDR presets pin **10 bpc**, SDR
+  presets pin strictly **8 bpc**, fixing the washed-out colors caused by the driver keeping
+  the wrong depth across HDR toggles. Current bpc shows in the app and `vantagectl list`.
+  On non-NVIDIA GPUs the feature quietly steps aside (AMD/Intel planned).
+
 ## [0.2.1-beta] — 2026-08-04
 
 ### Fixed

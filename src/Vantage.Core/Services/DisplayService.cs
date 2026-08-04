@@ -91,6 +91,12 @@ public sealed class DisplayService
                 };
             }
 
+            // NVIDIA output color depth (bpc) — the piece CCD can't see or set.
+            int? outputBpc = null;
+            var gdiName = sourceName.Succeeded ? sourceName.Value.ViewGdiDeviceName : null;
+            if (gdiName is { Length: > 0 } && Vantage.Interop.Nvidia.NvApi.TryGetDisplayId(gdiName, out var nvDisplayId))
+                outputBpc = Vantage.Interop.Nvidia.NvApi.GetOutputBpc(nvDisplayId);
+
             displays.Add(new DisplayState
             {
                 Identity = identity,
@@ -115,6 +121,7 @@ public sealed class DisplayService
                 Dpi = dpi,
                 PhysicalWidthMm = edid?.PhysicalWidthMm ?? 0,
                 PhysicalHeightMm = edid?.PhysicalHeightMm ?? 0,
+                OutputBpc = outputBpc,
             });
         }
 

@@ -135,6 +135,7 @@ public sealed class ProfileStore
             DpiScalePercent = d.Dpi?.CurrentPercent,
             HdrEnabled = d.Hdr.Supported ? d.Hdr.Enabled : null,
             SdrWhiteLevelNits = d.Hdr is { Enabled: true, SdrWhiteLevelNits: not null } ? d.Hdr.SdrWhiteLevelNits : null,
+            ColorDepthBpc = d.OutputBpc,
         }).ToList(),
         Replay = snapshot.Replay,
     };

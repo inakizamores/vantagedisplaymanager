@@ -77,6 +77,8 @@ public sealed record DisplayState
     public DpiInfo? Dpi { get; init; }
     public int PhysicalWidthMm { get; init; }
     public int PhysicalHeightMm { get; init; }
+    /// <summary>NVIDIA output color depth in bits per channel; null on other GPUs or when driver-default.</summary>
+    public int? OutputBpc { get; init; }
 
     public double RefreshHz => RefreshMillihertz / 1000.0;
 }

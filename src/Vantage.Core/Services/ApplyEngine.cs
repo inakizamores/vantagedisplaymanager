@@ -14,6 +14,7 @@ public enum ApplyStepKind
     WaitForSettle,
     ApplyDpi,
     ApplyHdr,
+    ApplyColorDepth,
     ApplySdrWhiteLevel,
     Verify,
     AutoRevert,
@@ -50,7 +51,7 @@ public sealed class ApplyEngine(DisplayService displayService)
     private const int SetterRetries = 3;
 
     /// <summary>Diff fields that never justify an automatic rollback.</summary>
-    private static readonly HashSet<string> SoftFields = new(StringComparer.Ordinal) { "hdr", "dpiScale" };
+    private static readonly HashSet<string> SoftFields = new(StringComparer.Ordinal) { "hdr", "dpiScale", "colorDepth" };
 
     public Task<ApplyReport> ApplyAsync(
         VantageProfile profile,
@@ -155,6 +156,7 @@ public sealed class ApplyEngine(DisplayService displayService)
 
                 await ApplyDpiAsync(wanted, live, luid, Report, ct).ConfigureAwait(false);
                 await ApplyHdrAsync(wanted, live, luid, Report, ct).ConfigureAwait(false);
+                await ApplyColorDepthAsync(wanted, live, Report, ct).ConfigureAwait(false);
                 ApplySdrWhiteLevel(wanted, live, luid, Report);
             }
 
@@ -348,10 +350,10 @@ public sealed class ApplyEngine(DisplayService displayService)
             {
                 var snapshot = displayService.Capture();
                 var match = ProfileMatcher.Match(profile, snapshot);
-                // Topology-level settle: geometry fields only; HDR/DPI come later in the pipeline.
+                // Topology-level settle: geometry fields only; HDR/DPI/bpc come later in the pipeline.
                 var topologyOk = match.Displays.All(d =>
                     d.Kind is DisplayMatchKind.Match or DisplayMatchKind.MatchWithTolerance ||
-                    d.Diffs.All(diff => diff.Field is "hdr" or "dpiScale"));
+                    d.Diffs.All(diff => SoftFields.Contains(diff.Field)));
                 if (topologyOk)
                     return true;
             }
@@ -427,6 +429,41 @@ public sealed class ApplyEngine(DisplayService displayService)
             }
         }
         report(ApplyStepKind.ApplyHdr, $"{live.Identity.FriendlyName}: could not verify HDR change");
+    }
+
+    /// <summary>
+    /// Sets the GPU output color depth via NVAPI (get-modify-set, verified by re-query).
+    /// Runs after the HDR step: the driver often flips bpc on its own during an HDR toggle,
+    /// and this pins it to the profile's intent (10 for HDR, 8 for SDR presets).
+    /// </summary>
+    private static async Task ApplyColorDepthAsync(
+        ProfileDisplay wanted, DisplayState live,
+        Action<ApplyStepKind, string> report, CancellationToken ct)
+    {
+        if (wanted.ColorDepthBpc is not { } bpc)
+            return;
+        if (live.GdiDeviceName is not { Length: > 0 } gdiName)
+            return;
+        if (!Vantage.Interop.Nvidia.NvApi.TryGetDisplayId(gdiName, out var displayId))
+            return; // non-NVIDIA output — nothing to do on this GPU
+        if (Vantage.Interop.Nvidia.NvApi.GetOutputBpc(displayId) == bpc)
+            return;
+
+        for (var attempt = 1; attempt <= SetterRetries; attempt++)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (!Vantage.Interop.Nvidia.NvApi.SetOutputBpc(displayId, bpc))
+                report(ApplyStepKind.ApplyColorDepth, $"{live.Identity.FriendlyName}: color depth setter failed (attempt {attempt})");
+
+            // bpc changes trigger a brief modeset — verify by re-query after it settles.
+            await Task.Delay(600 * attempt, ct).ConfigureAwait(false);
+            if (Vantage.Interop.Nvidia.NvApi.GetOutputBpc(displayId) == bpc)
+            {
+                report(ApplyStepKind.ApplyColorDepth, $"{live.Identity.FriendlyName}: output color depth set to {bpc} bpc");
+                return;
+            }
+        }
+        report(ApplyStepKind.ApplyColorDepth, $"{live.Identity.FriendlyName}: could not verify {bpc} bpc (display/link may not support it at this mode)");
     }
 
     private static bool VerifyHdr(LUID luid, uint targetId, bool expected)

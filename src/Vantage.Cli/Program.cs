@@ -110,6 +110,8 @@ internal static class Program
                 ? $"{(d.Hdr.Enabled ? "ON" : "off")} (mode {d.Hdr.ActiveColorMode ?? "n/a"}, {d.Hdr.BitsPerColorChannel}-bit {d.Hdr.ColorEncoding}{(d.Hdr.SdrWhiteLevelNits is { } n ? $", SDR white {n:0} nits" : "")})"
                 : "not supported";
             Console.WriteLine($"      HDR          {hdrDesc}");
+            if (d.OutputBpc is { } bpc)
+                Console.WriteLine($"      Output       {bpc} bpc (GPU)");
             if (d.Dpi is { } dpi)
                 Console.WriteLine($"      Scale        {dpi.CurrentPercent}% (recommended {dpi.RecommendedPercent}%)");
             if (d.PhysicalWidthMm > 0)

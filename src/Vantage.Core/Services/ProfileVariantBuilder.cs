@@ -83,6 +83,17 @@ public static class ProfileVariantBuilder
             }
 
             var hasOverride = resolved.TryGetValue(live.Identity.StableId, out var o);
+            var hdrEnabled = hasOverride && o.Hdr is not null
+                ? (live.Hdr.Supported ? o.Hdr : null)
+                : (live.Hdr.Supported ? live.Hdr.Enabled : null);
+
+            // Color depth follows the HDR intent strictly: HDR → 10 bpc, SDR → 8 bpc.
+            // Leaving it floating lets the driver keep the wrong depth across HDR toggles
+            // (washed-out colors). Displays without an HDR override keep their current bpc.
+            var colorDepth = hasOverride && o.Hdr is not null && live.Hdr.Supported
+                ? (o.Hdr == true ? 10 : 8)
+                : live.OutputBpc;
+
             displays.Add(new ProfileDisplay
             {
                 Identity = live.Identity,
@@ -95,10 +106,9 @@ public static class ProfileVariantBuilder
                 RefreshMillihertz = hasOverride ? o.MilliHz : live.RefreshMillihertz,
                 Rotation = live.Rotation,
                 DpiScalePercent = live.Dpi?.CurrentPercent,
-                HdrEnabled = hasOverride && o.Hdr is not null
-                    ? (live.Hdr.Supported ? o.Hdr : null)
-                    : (live.Hdr.Supported ? live.Hdr.Enabled : null),
+                HdrEnabled = hdrEnabled,
                 SdrWhiteLevelNits = live.Hdr is { Enabled: true, SdrWhiteLevelNits: not null } ? live.Hdr.SdrWhiteLevelNits : null,
+                ColorDepthBpc = colorDepth,
             });
         }
 

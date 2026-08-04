@@ -15,6 +15,8 @@ public sealed record ProfileDisplay
     public int? DpiScalePercent { get; init; }
     public bool? HdrEnabled { get; init; }
     public double? SdrWhiteLevelNits { get; init; }
+    /// <summary>Output color depth (bpc) via the GPU vendor API. HDR presets pin 10, SDR presets pin 8 — leaving it floating causes washed-out colors when the driver keeps the wrong depth across HDR toggles.</summary>
+    public int? ColorDepthBpc { get; init; }
     /// <summary>Reserved for vendor blobs (Surround/Eyefinity/DRS) — BLUEPRINT P5.</summary>
     public Dictionary<string, string>? VendorExtras { get; init; }
 }

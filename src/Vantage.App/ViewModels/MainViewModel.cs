@@ -39,11 +39,10 @@ public partial class DisplayItemViewModel : ObservableObject
         ModeText = $"{d.Width} × {d.Height} · {d.RefreshHz:0.###} Hz";
         var scale = d.Dpi is { } dpi ? $" · {dpi.CurrentPercent}% scale" : "";
         var hdrText = d.Hdr.Supported
-            ? d.Hdr.Enabled
-                ? $" · HDR on ({d.Hdr.BitsPerColorChannel}-bit)"
-                : " · HDR off"
+            ? d.Hdr.Enabled ? " · HDR on" : " · HDR off"
             : "";
-        DetailText = $"{Prettify(d.OutputTechnology)}{scale}{hdrText}";
+        var bpcText = d.OutputBpc is { } bpc ? $" · {bpc} bpc" : "";
+        DetailText = $"{Prettify(d.OutputTechnology)}{scale}{hdrText}{bpcText}";
         IconSymbol = d.OutputTechnology.Contains("Internal") ? "Laptop24" : "Desktop24";
         HdrSupported = d.Hdr.Supported;
 
