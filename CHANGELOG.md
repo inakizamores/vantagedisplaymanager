@@ -3,7 +3,7 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [0.4.5-beta] — 2026-08-04
 
 ### Fixed
 - The profile name box and the "Save current setup" / "New preset…" buttons beside it were
@@ -51,8 +51,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow 
   "Vantage CLI"), which is also what the SmartScreen prompt reads.
 - Assembly metadata was largely unset — `Authors` was the literal string "Vantage" and there
   was no company, copyright, description, or repository URL.
-
-### Fixed
 - Accent color now matches native Windows apps exactly. Accent-filled surfaces (buttons,
   toggles) were painted with the base accent color; Windows itself fills them with the
   **Light2** shade in dark mode and **Dark1** in light mode, and inverts the text on top.
