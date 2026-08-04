@@ -88,6 +88,8 @@ public partial class ProfileItemViewModel(VantageProfile profile) : ObservableOb
     [ObservableProperty] private bool _isActive;
     [ObservableProperty] private bool _isPossible = true;
     [ObservableProperty] private string _summaryText = "";
+    [ObservableProperty] private System.Windows.Media.ImageSource? _layoutImage;
+    [ObservableProperty] private string _hotkeyText = "";
 
     public void Update(VantageProfile profile, ProfileMatchResult match)
     {
@@ -98,6 +100,11 @@ public partial class ProfileItemViewModel(VantageProfile profile) : ObservableOb
         StatusText = match.IsActive ? "Active" : match.IsPossible ? "" : "Displays not connected";
         SummaryText = string.Join("  ·  ", profile.Displays.Where(d => d.Enabled)
             .Select(d => $"{d.Width}×{d.Height}@{Math.Round(d.RefreshMillihertz / 1000.0)}"));
+        HotkeyText = profile.Hotkey is { Length: > 0 } h ? HotkeyService.FormatGesture(h) : "";
+        LayoutImage = LayoutThumbnail.Render(profile.Displays
+            .Where(d => d.Enabled)
+            .Select(d => new ThumbnailDisplay(d.PositionX, d.PositionY, d.Width, d.Height, d.Primary, d.HdrEnabled == true))
+            .ToList());
     }
 }
 
@@ -220,6 +227,94 @@ public partial class MainViewModel : ObservableObject
         for (var i = Profiles.Count - 1; i >= 0; i--)
             if (!seen.Contains(Profiles[i].Id))
                 Profiles.RemoveAt(i);
+
+        RefreshHotkeyRegistrations(envelope);
+    }
+
+    // --- Hotkeys ---
+
+    private HotkeyService? _hotkeys;
+
+    public void AttachHotkeyService(HotkeyService hotkeys)
+    {
+        _hotkeys = hotkeys;
+        RefreshHotkeyRegistrations(_store.Load());
+    }
+
+    private void RefreshHotkeyRegistrations(ProfileFileEnvelope envelope)
+    {
+        if (_hotkeys is null)
+            return;
+        var failures = _hotkeys.RegisterAll(envelope.Profiles
+            .Where(p => p.Hotkey is { Length: > 0 })
+            .Select(p => (p.Id, p.Hotkey!)));
+        if (failures.Count > 0)
+            ShowStatus("Some hotkeys are unavailable",
+                $"Already in use by another app: {string.Join(", ", failures)}",
+                Wpf.Ui.Controls.InfoBarSeverity.Warning);
+    }
+
+    public async Task OnHotkeyPressedAsync(Guid profileId)
+    {
+        var item = Profiles.FirstOrDefault(p => p.Id == profileId);
+        if (item is not null && item.IsPossible && !IsBusy)
+            await ApplyProfileAsync(item);
+    }
+
+    [RelayCommand]
+    private async Task SetHotkeyAsync(ProfileItemViewModel item)
+    {
+        var dialog = new HotkeyCaptureWindow(item.Name, item.Profile.Hotkey)
+        {
+            Owner = System.Windows.Application.Current.MainWindow,
+        };
+        if (dialog.ShowDialog() != true)
+            return;
+
+        item.Profile.Hotkey = dialog.Gesture;
+        _store.Upsert(item.Profile);
+        await RefreshAsync();
+    }
+
+    // --- Dialogs ---
+
+    [RelayCommand]
+    private async Task NewPresetAsync()
+    {
+        if (IsBusy)
+            return;
+
+        var snapshot = await Task.Run(_displayService.Capture);
+        var dialog = new PresetEditorWindow(snapshot)
+        {
+            Owner = System.Windows.Application.Current.MainWindow,
+        };
+        if (dialog.ShowDialog() != true || dialog.CreatedProfile is not { } created)
+            return;
+
+        var existing = _store.Find(created.Name);
+        if (existing is not null)
+            created = created with { Id = existing.Id, CreatedAt = existing.CreatedAt, Hotkey = existing.Hotkey };
+        _store.Upsert(created);
+        ShowStatus("Preset created", $"'{created.Name}' is ready to apply.", Wpf.Ui.Controls.InfoBarSeverity.Success);
+        await RefreshAsync();
+    }
+
+    [RelayCommand]
+    private async Task OpenLayoutEditorAsync()
+    {
+        if (IsBusy)
+            return;
+
+        var snapshot = await Task.Run(_displayService.Capture);
+        var dialog = new LayoutEditorWindow(snapshot, _engine)
+        {
+            Owner = System.Windows.Application.Current.MainWindow,
+        };
+        dialog.ShowDialog();
+        if (dialog.Applied)
+            ShowStatus("Arrangement applied", "The new display arrangement is verified and active.", Wpf.Ui.Controls.InfoBarSeverity.Success);
+        await RefreshAsync();
     }
 
     [RelayCommand]

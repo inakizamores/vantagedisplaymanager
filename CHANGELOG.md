@@ -3,6 +3,26 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [0.2.0-beta] — 2026-08-04
+
+### Added
+- **In-app preset editor** — "New preset…" builds a profile with a different resolution,
+  refresh rate, or HDR state per display, straight from dropdowns validated against the
+  driver's mode list. No more CLI required for presets.
+- **Global hotkeys** — assign a key combination to any profile (keyboard button on each
+  profile card). Hotkeys work system-wide, even when Vantage runs tray-only.
+- **Visual layout editor** — "Arrange" opens a drag-and-drop editor (Windows Settings style):
+  displays snap to each other's edges, and the arrangement is applied through the verified
+  engine with automatic rollback.
+- **Layout thumbnails** — every profile card now shows a miniature of its monitor
+  arrangement (proportional sizes, accent-colored primary, HDR marker), DisplayMagician-style
+  but drawn from your live accent color.
+- **Test suite** — 14 engine tests running over display-state fixtures recorded from real
+  hardware; runs in CI on every push.
+
+### Fixed
+- Dialogs now close with Esc.
+
 ## [0.1.3-beta] — 2026-08-04
 
 ### Changed

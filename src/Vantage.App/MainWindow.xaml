@@ -43,6 +43,7 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <ui:TextBlock Grid.Column="0" FontTypography="Subtitle" Text="Displays" />
                     <ui:ProgressRing
@@ -53,6 +54,14 @@
                         Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
                     <ui:Button
                         Grid.Column="2"
+                        Margin="0,0,8,0"
+                        Appearance="Secondary"
+                        Icon="{ui:SymbolIcon Grid24}"
+                        Content="Arrange"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                        Command="{Binding OpenLayoutEditorCommand}" />
+                    <ui:Button
+                        Grid.Column="3"
                         Appearance="Secondary"
                         Icon="{ui:SymbolIcon ArrowClockwise24}"
                         Content="Refresh"
@@ -105,6 +114,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <ui:TextBox
                         Grid.Column="0"
@@ -119,30 +129,55 @@
                         Content="Save current setup"
                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
                         Command="{Binding SaveProfileCommand}" />
+                    <ui:Button
+                        Grid.Column="2"
+                        Margin="8,0,0,0"
+                        Appearance="Secondary"
+                        Icon="{ui:SymbolIcon Add24}"
+                        Content="New preset…"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                        Command="{Binding NewPresetCommand}" />
                 </Grid>
 
                 <ItemsControl ItemsSource="{Binding Profiles}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:ProfileItemViewModel}">
-                            <ui:CardControl Margin="0,0,0,8" Icon="{ui:SymbolIcon Board24}">
+                            <ui:CardControl Margin="0,0,0,8">
                                 <ui:CardControl.Header>
-                                    <StackPanel>
-                                        <StackPanel Orientation="Horizontal">
-                                            <ui:TextBlock FontTypography="BodyStrong" Text="{Binding Name}" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <Image
+                                            Source="{Binding LayoutImage}"
+                                            Width="88"
+                                            Height="40"
+                                            Margin="0,0,14,0"
+                                            VerticalAlignment="Center"
+                                            RenderOptions.BitmapScalingMode="HighQuality" />
+                                        <StackPanel VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ui:TextBlock FontTypography="BodyStrong" Text="{Binding Name}" />
+                                                <TextBlock
+                                                    Text="{Binding StatusText}"
+                                                    Margin="8,1,0,0"
+                                                    FontSize="12"
+                                                    Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                                            </StackPanel>
                                             <TextBlock
-                                                Text="{Binding StatusText}"
-                                                Margin="8,1,0,0"
+                                                Text="{Binding SummaryText}"
                                                 FontSize="12"
-                                                Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                                                Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
                                         </StackPanel>
-                                        <TextBlock
-                                            Text="{Binding SummaryText}"
-                                            FontSize="12"
-                                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
                                     </StackPanel>
                                 </ui:CardControl.Header>
                                 <StackPanel Orientation="Horizontal">
                                     <ui:Button
+                                        Appearance="Secondary"
+                                        Icon="{ui:SymbolIcon Keyboard24}"
+                                        Content="{Binding HotkeyText}"
+                                        ToolTip="Set a global hotkey for this profile"
+                                        Command="{Binding DataContext.SetHotkeyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}" />
+                                    <ui:Button
+                                        Margin="8,0,0,0"
                                         Appearance="Secondary"
                                         Content="Apply"
                                         IsEnabled="{Binding IsPossible}"

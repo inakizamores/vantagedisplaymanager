@@ -9,6 +9,7 @@ public partial class App : Application
 {
     private Mutex? _singleInstanceMutex;
     private TaskbarIcon? _trayIcon;
+    private Vantage.App.Services.HotkeyService? _hotkeys;
 
     public MainViewModel ViewModel { get; private set; } = null!;
     public MainWindow? MainAppWindow { get; private set; }
@@ -39,6 +40,11 @@ public partial class App : Application
         var displayService = new DisplayService();
         var store = new ProfileStore();
         ViewModel = new MainViewModel(displayService, store, new ApplyEngine(displayService));
+
+        // Global profile hotkeys — alive even in tray-only mode.
+        _hotkeys = new Vantage.App.Services.HotkeyService(profileId =>
+            Dispatcher.InvokeAsync(() => ViewModel.OnHotkeyPressedAsync(profileId)));
+        ViewModel.AttachHotkeyService(_hotkeys);
 
         CreateTrayIcon();
 
@@ -141,6 +147,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _hotkeys?.Dispose();
         _trayIcon?.Dispose();
         _singleInstanceMutex?.ReleaseMutex();
         _singleInstanceMutex?.Dispose();

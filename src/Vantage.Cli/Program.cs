@@ -50,6 +50,10 @@ internal static class Program
                     return await Hdr(displayService, args.Skip(1).ToArray());
                 case "modes":
                     return Modes(displayService, args.Skip(1).ToArray());
+                case "snapshot":
+                    // Full SystemSnapshot dump — used to record test fixtures and for diagnostics.
+                    Console.WriteLine(JsonSerializer.Serialize(displayService.Capture(), JsonOut));
+                    return 0;
                 case "variant":
                     return Variant(displayService, store, args.Skip(1).ToArray());
                 default:

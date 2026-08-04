@@ -1,0 +1,162 @@
+﻿{
+  "capturedAt": "2026-08-04T10:59:22.0683231-06:00",
+  "displays": [
+    {
+      "identity": {
+        "stableId": "SAM7454_TESTSER001",
+        "deviceInstanceId": "DISPLAY\\SAM7454\\5\u002635454913\u00260\u0026UID4355",
+        "friendlyName": "Odyssey G93SC",
+        "edidManufacturer": "SAM",
+        "edidProductCode": 29780,
+        "edidSerial": "TESTSER001"
+      },
+      "address": {
+        "adapterLuid": 62556,
+        "sourceId": 0,
+        "targetId": 4355
+      },
+      "gdiDeviceName": "\\\\.\\DISPLAY1",
+      "adapterDevicePath": "\\\\?\\PCI#VEN_10DE\u0026DEV_2C05\u0026SUBSYS_53151462\u0026REV_A1#F6C0EEC0502DB04800#{5b45201d-f2f2-4f3b-85bb-30ff1f953599}",
+      "outputTechnology": "DisplayPortExternal",
+      "isPrimary": true,
+      "positionX": 0,
+      "positionY": 0,
+      "width": 5120,
+      "height": 1440,
+      "refreshMillihertz": 240000,
+      "rotation": "landscape",
+      "scaling": "Identity",
+      "hdr": {
+        "supported": true,
+        "enabled": false,
+        "activeColorMode": "Sdr",
+        "bitsPerColorChannel": 8,
+        "colorEncoding": "Rgb",
+        "sdrWhiteLevelNits": 80
+      },
+      "dpi": {
+        "currentPercent": 100,
+        "recommendedPercent": 100,
+        "minPercent": 100,
+        "maxPercent": 225
+      },
+      "physicalWidthMm": 1193,
+      "physicalHeightMm": 336,
+      "refreshHz": 240
+    },
+    {
+      "identity": {
+        "stableId": "ONK1062_0",
+        "deviceInstanceId": "DISPLAY\\ONK1062\\5\u002635454913\u00260\u0026UID4354",
+        "friendlyName": "AV Receiver",
+        "edidManufacturer": "ONK",
+        "edidProductCode": 4194,
+        "edidSerial": "0"
+      },
+      "address": {
+        "adapterLuid": 62556,
+        "sourceId": 1,
+        "targetId": 4354
+      },
+      "gdiDeviceName": "\\\\.\\DISPLAY2",
+      "adapterDevicePath": "\\\\?\\PCI#VEN_10DE\u0026DEV_2C05\u0026SUBSYS_53151462\u0026REV_A1#F6C0EEC0502DB04800#{5b45201d-f2f2-4f3b-85bb-30ff1f953599}",
+      "outputTechnology": "Dvi",
+      "isPrimary": false,
+      "positionX": 5120,
+      "positionY": 0,
+      "width": 1920,
+      "height": 1080,
+      "refreshMillihertz": 120000,
+      "rotation": "landscape",
+      "scaling": "Identity",
+      "hdr": {
+        "supported": false,
+        "enabled": false,
+        "activeColorMode": "Sdr",
+        "bitsPerColorChannel": 8,
+        "colorEncoding": "Rgb",
+        "sdrWhiteLevelNits": 80
+      },
+      "dpi": {
+        "currentPercent": 100,
+        "recommendedPercent": 100,
+        "minPercent": 100,
+        "maxPercent": 175
+      },
+      "physicalWidthMm": 527,
+      "physicalHeightMm": 296,
+      "refreshHz": 120
+    }
+  ],
+  "replay": {
+    "paths": [
+      {
+        "sourceAdapter": 62556,
+        "sourceId": 0,
+        "sourceModeInfoIdx": 131071,
+        "sourceStatusFlags": 1,
+        "targetAdapter": 62556,
+        "targetId": 4355,
+        "targetModeInfoIdx": 65535,
+        "outputTechnology": 10,
+        "rotation": 1,
+        "scaling": 1,
+        "refreshNumerator": 240,
+        "refreshDenominator": 1,
+        "scanLineOrdering": 1,
+        "targetAvailable": 1,
+        "targetStatusFlags": 1,
+        "flags": 1,
+        "monitorStableId": "SAM7454_TESTSER001"
+      },
+      {
+        "sourceAdapter": 62556,
+        "sourceId": 1,
+        "sourceModeInfoIdx": 262143,
+        "sourceStatusFlags": 1,
+        "targetAdapter": 62556,
+        "targetId": 4354,
+        "targetModeInfoIdx": 196607,
+        "outputTechnology": 4,
+        "rotation": 1,
+        "scaling": 1,
+        "refreshNumerator": 120,
+        "refreshDenominator": 1,
+        "scanLineOrdering": 1,
+        "targetAvailable": 1,
+        "targetStatusFlags": 1,
+        "flags": 1,
+        "monitorStableId": "ONK1062_0"
+      }
+    ],
+    "modes": [
+      {
+        "infoType": 2,
+        "id": 4355,
+        "adapter": 62556,
+        "unionBytes": "ANBggwAAAAAA0GCD4BUAAPAAAAABAAAAABQAAKAFAADgFQAAaAYAAP8AAAABAAAA"
+      },
+      {
+        "infoType": 1,
+        "id": 0,
+        "adapter": 62556,
+        "unionBytes": "ABQAAKAFAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      },
+      {
+        "infoType": 2,
+        "id": 4354,
+        "adapter": 62556,
+        "unionBytes": "QNyzEQAAAABA3LMRmAgAAHgAAAABAAAAgAcAADgEAACYCAAAZQQAABkAAAABAAAA"
+      },
+      {
+        "infoType": 1,
+        "id": 1,
+        "adapter": 62556,
+        "unionBytes": "gAcAADgEAAAEAAAAABQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      }
+    ],
+    "adapterPaths": {
+      "F45C": "\\\\?\\PCI#VEN_10DE\u0026DEV_2C05\u0026SUBSYS_53151462\u0026REV_A1#F6C0EEC0502DB04800#{5b45201d-f2f2-4f3b-85bb-30ff1f953599}"
+    }
+  }
+}
