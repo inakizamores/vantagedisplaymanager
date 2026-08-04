@@ -174,8 +174,12 @@
                                         </StackPanel>
                                     </StackPanel>
                                 </ui:CardControl.Header>
+                                <!-- Stretch every button to the row height. Left alone, the ones
+                                     carrying text size 2px taller than the icon-only ones, so the
+                                     row of actions reads as ragged. -->
                                 <StackPanel Orientation="Horizontal">
                                     <ui:Button
+                                        VerticalAlignment="Stretch"
                                         Appearance="Secondary"
                                         Icon="{ui:SymbolIcon Keyboard24}"
                                         Content="{Binding HotkeyText}"
@@ -184,6 +188,7 @@
                                         CommandParameter="{Binding}" />
                                     <ui:Button
                                         Margin="8,0,0,0"
+                                        VerticalAlignment="Stretch"
                                         Appearance="Secondary"
                                         Icon="{ui:SymbolIcon Save24}"
                                         ToolTip="Overwrite this profile with the current setup"
@@ -191,6 +196,7 @@
                                         CommandParameter="{Binding}" />
                                     <ui:Button
                                         Margin="8,0,0,0"
+                                        VerticalAlignment="Stretch"
                                         Appearance="Secondary"
                                         Content="Apply"
                                         IsEnabled="{Binding IsPossible}"
@@ -198,6 +204,7 @@
                                         CommandParameter="{Binding}" />
                                     <ui:Button
                                         Margin="8,0,0,0"
+                                        VerticalAlignment="Stretch"
                                         Appearance="Secondary"
                                         Icon="{ui:SymbolIcon Delete24}"
                                         ToolTip="Delete profile"

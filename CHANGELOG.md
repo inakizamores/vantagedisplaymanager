@@ -9,6 +9,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow 
 - The profile name box and the "Save current setup" / "New preset…" buttons beside it were
   different heights, so the row looked ragged. All three now stretch to the row height and
   line up top and bottom.
+- Same on every profile card: the buttons carrying text (hotkey, "Apply") rendered 2 px taller
+  than the icon-only ones (overwrite, delete) and sat a pixel higher. All four now stretch to
+  the row height — measured identical at 31 px.
 
 ## [0.4.0-beta] — 2026-08-04
 
