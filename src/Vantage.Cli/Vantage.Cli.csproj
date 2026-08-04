@@ -4,6 +4,10 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <AssemblyName>vantagectl</AssemblyName>
     <RootNamespace>Vantage.Cli</RootNamespace>
+    <!-- Shown as the file description in Explorer and Task Manager. -->
+    <AssemblyTitle>Vantage CLI</AssemblyTitle>
+    <!-- One icon for the whole product; Vantage.App owns the file. -->
+    <ApplicationIcon>..\Vantage.App\Assets\vantage.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Vantage.Core\Vantage.Core.csproj" />

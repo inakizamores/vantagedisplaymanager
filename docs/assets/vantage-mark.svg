@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-labelledby="vantage-mark-title">
+  <title id="vantage-mark-title">Vantage Display Manager</title>
+  <desc>Two display panels angled inward, seen from above, forming a V. The gap between them is the vantage point.</desc>
+  <defs>
+    <linearGradient id="vantage-tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3A2FB8"/>
+      <stop offset="1" stop-color="#1E86F0"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#vantage-tile)"/>
+  <rect x="-27.2" y="-10" width="54.4" height="20" rx="5.5" fill="#FFFFFF"
+        transform="translate(41.6 63) rotate(65.7)"/>
+  <rect x="-27.2" y="-10" width="54.4" height="20" rx="5.5" fill="#5CE1FF"
+        transform="translate(86.4 63) rotate(-65.7)"/>
+</svg>

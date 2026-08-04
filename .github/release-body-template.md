@@ -1,3 +1,9 @@
+<div align="center">
+
+<img src="https://raw.githubusercontent.com/inakizamores/vantagedisplaymanager/main/docs/assets/vantage-banner.png" width="720" alt="Vantage Display Manager" />
+
+</div>
+
 ## ⬇️ Which file do I download?
 
 | File | When to pick it |

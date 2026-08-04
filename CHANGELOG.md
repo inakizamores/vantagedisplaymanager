@@ -3,6 +3,57 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [0.4.0-beta] — 2026-08-04
+
+### Changed
+- **New logo and branding.** The mark is now two display panels angled inward as if seen from
+  above, with the gap between them as the vantage point — it says what the app does and still
+  resolves to a legible V at 16 px, where a tray-first app spends most of its life. Replaces
+  the generic gradient tile with a "V" set in Segoe UI. Applies to the app icon, window icon,
+  tray icon, installer icon, and the README.
+- Brand assets are now generated from one geometry definition by `build/make-branding.ps1`
+  (supersedes `build/make-icon.ps1`): the multi-resolution `.ico`, the README lockups for
+  GitHub's light and dark themes, a 512 px mark, and a 1280×640 social preview.
+  [`docs/assets/vantage-mark.svg`](docs/assets/vantage-mark.svg) is the vector source of truth.
+- Icon sizes at or below 24 px render the mark 10% larger, so the V keeps its weight in the
+  tray and taskbar.
+- The Velopack installer shows a branded splash banner, with the progress bar tinted to the
+  accent cyan.
+- Release notes now open with a branded banner.
+- Screenshots refreshed, and the layout and preset editors documented for the first time.
+
+### Fixed
+- **Every icon was shifted one pixel left.** The `.ico` writer declared `biSize = 40` for the
+  `BITMAPINFOHEADER` but only wrote 36 bytes, omitting `biClrImportant`. Decoders read the
+  promised 40 and swallowed the first four bytes of pixel data — exactly one pixel at 32 bpp —
+  shifting every BMP entry (16/20/24/32/48/64) a pixel left and wrapping a column in from the
+  next row. This is why small icons looked off-centre and malformed. The bug predates the
+  rebrand: it was inherited from `build/make-icon.ps1`, so the old icon was shifted too.
+- Icons at or below 32 px are now drawn as a purpose-made variant rather than a shrunk copy of
+  the full mark. The cyan panel sits over the bright end of the tile gradient, where it has
+  roughly 1.7:1 contrast against about 6:1 for the white panel; once it was two pixels wide it
+  dissolved into the tile and the V read as a single bar. Small sizes use two white panels,
+  thicker, converged into a solid vertex.
+- Icon entries below 128 px are now supersampled 8× and downscaled on premultiplied alpha,
+  instead of relying on GDI+ antialiasing of a thin rotated shape at 16 px.
+- `vantagectl.exe` had no icon and showed a bare "vantagectl" description; both exes now
+  carry the product icon and a real file description ("Vantage Display Manager" /
+  "Vantage CLI"), which is also what the SmartScreen prompt reads.
+- Assembly metadata was largely unset — `Authors` was the literal string "Vantage" and there
+  was no company, copyright, description, or repository URL.
+
+### Fixed
+- Accent color now matches native Windows apps exactly. Accent-filled surfaces (buttons,
+  toggles) were painted with the base accent color; Windows itself fills them with the
+  **Light2** shade in dark mode and **Dark1** in light mode, and inverts the text on top.
+  For a purple accent that meant Vantage drew `#A94DC1` where Settings draws `#DB9EE5`.
+- Accent buttons ("Save current setup", "Create preset", "Apply arrangement", hotkey "Save")
+  no longer hardcode white text, which was unreadable on the lighter dark-mode accent fill.
+  They now follow `TextOnAccentFillColorPrimary`, so the label inverts with the theme.
+- The "HDR" badge on profile thumbnails picks black or white by the WCAG luminance of the
+  panel behind it, instead of always drawing white — it was invisible on the accent-filled
+  primary display.
+
 ## [0.3.1-beta] — 2026-08-04
 
 ### Added

@@ -1,33 +1,49 @@
 <div align="center">
 
-<img src="src/Vantage.App/Assets/vantage.ico" width="96" alt="Vantage icon" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/vantage-lockup-dark.png">
+  <img src="docs/assets/vantage-lockup.png" width="340" alt="Vantage Display Manager" />
+</picture>
 
-# Vantage: Display Manager
+### Display profiles for Windows 11 that actually stick.
 
-**Display profiles for Windows 11 that actually stick.**
-Save complete display setups — layout, resolution, refresh rate, HDR, color depth, scaling —
-and switch between them in one click, one hotkey, or one scripted command.
+Save a complete display setup — layout, resolution, refresh rate, HDR, color depth, scaling —
+and switch back to it in one click, one hotkey, or one scripted command.
+Every switch is verified, and reverts itself if it fails.
+
+<br />
 
 [![CI](https://github.com/inakizamores/vantagedisplaymanager/actions/workflows/ci.yml/badge.svg)](https://github.com/inakizamores/vantagedisplaymanager/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/inakizamores/vantagedisplaymanager?include_prereleases&label=release)](https://github.com/inakizamores/vantagedisplaymanager/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/inakizamores/vantagedisplaymanager/total)](https://github.com/inakizamores/vantagedisplaymanager/releases)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/inakizamores/vantagedisplaymanager?include_prereleases&label=release&color=1E86F0)](https://github.com/inakizamores/vantagedisplaymanager/releases)
+[![Downloads](https://img.shields.io/github/downloads/inakizamores/vantagedisplaymanager/total?color=1E86F0)](https://github.com/inakizamores/vantagedisplaymanager/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-3A2FB8.svg)](LICENSE)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4)
 ![.NET](https://img.shields.io/badge/.NET-8.0-512BD4)
 
-<img src="docs/assets/screenshot-main.png" width="720" alt="Vantage main window" />
+<br />
+
+<img src="docs/assets/screenshot-main.png" width="760" alt="The Vantage main window, showing saved display profiles as cards" />
+
+**[⬇ Download](https://github.com/inakizamores/vantagedisplaymanager/releases)** ·
+[Quick start](#quick-start) ·
+[CLI](#cli) ·
+[How it works](#how-it-works) ·
+[Roadmap](#roadmap)
 
 </div>
 
 ---
 
-## Why Vantage?
+## Why Vantage
 
 Tools like HeliosDisplayManagement and DisplayMagician pioneered display profiles on Windows —
 and taught everyone the failure modes: profiles that break after every driver update, switches
 that hang for 30 seconds, monitors that lose their identity when replugged. Vantage was
 designed from a [deep study of those codebases](docs/BLUEPRINT.md) to keep the good ideas and
 engineer out the quirks.
+
+The name is the idea: two displays angled toward one seat, and everything about that view saved
+as a thing you can return to.
 
 ## What it does today
 
@@ -48,7 +64,7 @@ engineer out the quirks.
 
 ## Install
 
-**[⬇ Download the latest release](https://github.com/inakizamores/vantagedisplaymanager/releases/latest)**
+**[⬇ Download the latest release](https://github.com/inakizamores/vantagedisplaymanager/releases)**
 
 | File | For |
 |---|---|
@@ -74,6 +90,21 @@ requires an NVIDIA GPU (AMD/Intel planned); everything else works on any GPU.
    a script. Every apply is verified; failures revert automatically.
 5. Setup drifted? The **overwrite** button on any profile card re-syncs it to your current
    setup in one click.
+
+<div align="center">
+<table>
+<tr>
+<td align="center" width="50%">
+<img src="docs/assets/screenshot-layout.png" width="430" alt="The Arrange displays editor, with two displays being dragged into position" />
+<br /><sub><b>Arrange</b> — drag displays, snap to edges, applied through the verified engine</sub>
+</td>
+<td align="center" width="50%">
+<img src="docs/assets/screenshot-preset.png" width="350" alt="The New preset dialog, with resolution and refresh rate dropdowns per display" />
+<br /><sub><b>New preset</b> — modes validated against your driver's real mode list</sub>
+</td>
+</tr>
+</table>
+</div>
 
 ### CLI
 
@@ -128,6 +159,33 @@ Requires the .NET 8 SDK. `src/Vantage.App` is the WPF app, `src/Vantage.Cli` the
 `src/Vantage.Core` the engine, `src/Vantage.Interop` the hand-written Win32/CCD/NVAPI layer,
 `tests/` the engine test suite. Releases ship automatically when a `v*` tag is pushed
 (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+
+## Brand
+
+<img src="docs/assets/vantage-mark-512.png" width="72" align="left" hspace="4" vspace="6" alt="" />
+
+The mark is two display panels angled inward as if seen from above. The gap between them is
+where you sit — the vantage point. It resolves to a legible V at 16 px, which is where a
+tray-first app spends most of its life.
+
+<br clear="left" />
+
+| | |
+|---|---|
+| Tile gradient | `#3A2FB8` → `#1E86F0` |
+| Active panel | `#5CE1FF` |
+| Idle panel | `#FFFFFF` |
+
+[`docs/assets/vantage-mark.svg`](docs/assets/vantage-mark.svg) is the vector source of truth.
+Every raster asset — the multi-resolution `.ico`, the README lockups, the release banner, the
+social card, and the 493×58 installer splash — is generated from one geometry definition.
+Icons at or below 32 px use a purpose-drawn variant of the mark rather than a shrunk copy of
+it, because the cyan panel loses its contrast against the tile once it is a couple of pixels
+wide:
+
+```powershell
+pwsh build/make-branding.ps1
+```
 
 ## Roadmap
 

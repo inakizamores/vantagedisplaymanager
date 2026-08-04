@@ -5,6 +5,9 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>Vantage</AssemblyName>
     <RootNamespace>Vantage.App</RootNamespace>
+    <!-- Shown as the file description in Explorer, Task Manager and the SmartScreen prompt,
+         which would otherwise fall back to the bare assembly name. -->
+    <AssemblyTitle>Vantage Display Manager</AssemblyTitle>
     <ApplicationIcon>Assets\vantage.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>

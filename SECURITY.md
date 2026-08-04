@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Only the [latest release](https://github.com/inakizamores/vantagedisplaymanager/releases/latest)
+Only the [latest release](https://github.com/inakizamores/vantagedisplaymanager/releases)
 receives security fixes.
 
 ## Reporting a vulnerability
