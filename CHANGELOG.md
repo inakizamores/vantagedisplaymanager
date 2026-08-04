@@ -3,6 +3,19 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Start with Windows** setting — registers a lightweight sign-in launch that opens straight
+  to the system tray (no window). The registered path self-heals if the app moves.
+- Settings section in the app.
+
+### Changed
+- **Fully automatic failure handling** replaces the "Keep changes?" countdown: every apply is
+  verified against Windows; a hard failure (wrong geometry, display lost) restores the
+  previous configuration automatically, while soft issues (e.g. HDR didn't verify) keep the
+  new configuration and surface a warning. No confirmations, no timers.
+
 ## [0.1.0-beta] — 2026-08-04
 
 First public beta. Core engine + native Windows 11 app + CLI.

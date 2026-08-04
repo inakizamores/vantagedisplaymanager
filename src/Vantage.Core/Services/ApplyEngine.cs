@@ -16,6 +16,7 @@ public enum ApplyStepKind
     ApplyHdr,
     ApplySdrWhiteLevel,
     Verify,
+    AutoRevert,
 }
 
 public sealed record ApplyProgress(ApplyStepKind Step, string Message);
@@ -26,12 +27,21 @@ public sealed record ApplyReport
     public required List<string> Log { get; init; }
     public ProfileMatchResult? FinalMatch { get; init; }
     public string? FailureReason { get; init; }
+    /// <summary>Non-fatal differences (e.g. HDR didn't verify) — config kept, user informed.</summary>
+    public List<string> Warnings { get; init; } = [];
+    /// <summary>True when a hard failure was detected and the previous configuration was restored.</summary>
+    public bool AutoReverted { get; init; }
 }
 
 /// <summary>
 /// Applies a profile using the verified pipeline from BLUEPRINT §5:
 /// resolve LUIDs → validate → apply → settle (poll-with-deadline, no fixed sleeps) →
 /// DPI → HDR → SDR white level → final semantic verify. Every setter is re-checked.
+///
+/// Failure policy is automatic — no user confirmation (DisplayMagician-style UX, but
+/// verified): a HARD failure (wrong geometry, missing display) rolls the previous
+/// configuration back automatically; SOFT failures (HDR/DPI didn't verify) keep the
+/// new configuration and surface warnings.
 /// </summary>
 public sealed class ApplyEngine(DisplayService displayService)
 {
@@ -39,10 +49,20 @@ public sealed class ApplyEngine(DisplayService displayService)
     private static readonly TimeSpan SettlePollInterval = TimeSpan.FromMilliseconds(250);
     private const int SetterRetries = 3;
 
-    public async Task<ApplyReport> ApplyAsync(
+    /// <summary>Diff fields that never justify an automatic rollback.</summary>
+    private static readonly HashSet<string> SoftFields = new(StringComparer.Ordinal) { "hdr", "dpiScale" };
+
+    public Task<ApplyReport> ApplyAsync(
         VantageProfile profile,
         IProgress<ApplyProgress>? progress = null,
         CancellationToken ct = default)
+        => ApplyInternalAsync(profile, progress, ct, allowRollback: true);
+
+    private async Task<ApplyReport> ApplyInternalAsync(
+        VantageProfile profile,
+        IProgress<ApplyProgress>? progress,
+        CancellationToken ct,
+        bool allowRollback)
     {
         var log = new List<string>();
         void Report(ApplyStepKind step, string message)
@@ -51,11 +71,14 @@ public sealed class ApplyEngine(DisplayService displayService)
             progress?.Report(new ApplyProgress(step, message));
         }
 
+        VantageProfile? rollback = null;
         try
         {
             // 1. Resolve adapter LUIDs: stored LUID → adapter device path → current LUID (P3).
             Report(ApplyStepKind.ResolveAdapters, "Re-mapping adapter identifiers for this session");
             var current = displayService.Capture();
+            if (allowRollback)
+                rollback = ProfileStore.FromSnapshot(current, "(automatic rollback)");
             var luidMap = BuildLuidMap(profile.Replay, current, log);
 
             var missing = ProfileMatcher.Match(profile, current).Displays
@@ -135,19 +158,99 @@ public sealed class ApplyEngine(DisplayService displayService)
                 ApplySdrWhiteLevel(wanted, live, luid, Report);
             }
 
-            // 6. Final semantic verification (P1) — the truth comes from re-capture, not from setters.
+            // 6. Final semantic verification (P1) — the truth comes from re-capture, not from
+            //    setters — then automatic failure policy: hard problems revert, soft ones warn.
             Report(ApplyStepKind.Verify, "Verifying final state");
             var final = displayService.Capture();
             var match = ProfileMatcher.Match(profile, final);
-            var ok = match.IsActive;
-            Report(ApplyStepKind.Verify, ok ? "Profile is now active" : "Applied with differences — see match report");
+            var (hardProblems, warnings) = ClassifyProblems(match);
 
-            return new ApplyReport { Succeeded = ok, Log = log, FinalMatch = match, FailureReason = ok ? null : "Final state differs from profile." };
+            if (hardProblems.Count == 0)
+            {
+                Report(ApplyStepKind.Verify, warnings.Count == 0
+                    ? "Profile is now active"
+                    : $"Profile applied with {warnings.Count} warning(s)");
+                return new ApplyReport { Succeeded = true, Log = log, FinalMatch = match, Warnings = warnings };
+            }
+
+            Report(ApplyStepKind.Verify, $"Verification failed: {string.Join("; ", hardProblems)}");
+            var reverted = await TryRollbackAsync(rollback, allowRollback, progress, log, Report).ConfigureAwait(false);
+            return new ApplyReport
+            {
+                Succeeded = false,
+                Log = log,
+                FinalMatch = match,
+                Warnings = warnings,
+                AutoReverted = reverted,
+                FailureReason = string.Join("; ", hardProblems),
+            };
         }
         catch (OperationCanceledException)
         {
             return Fail(log, "Cancelled.");
         }
+        catch (Exception ex) when (ex is CcdException or System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            Report(ApplyStepKind.Verify, $"Apply failed with an error: {ex.Message}");
+            var reverted = await TryRollbackAsync(rollback, allowRollback, progress, log, Report).ConfigureAwait(false);
+            return new ApplyReport
+            {
+                Succeeded = false,
+                Log = log,
+                AutoReverted = reverted,
+                FailureReason = ex.Message,
+            };
+        }
+    }
+
+    /// <summary>Splits verification diffs into hard problems (auto-revert) and soft warnings (keep + inform).</summary>
+    private static (List<string> Hard, List<string> Soft) ClassifyProblems(ProfileMatchResult match)
+    {
+        var hard = new List<string>();
+        var soft = new List<string>();
+
+        foreach (var d in match.Displays)
+        {
+            var name = d.ProfileIdentity.FriendlyName ?? d.ProfileIdentity.StableId;
+            if (d.Kind == DisplayMatchKind.DisplayMissing)
+            {
+                hard.Add($"{name} disappeared during apply");
+                continue;
+            }
+            foreach (var diff in d.Diffs)
+            {
+                var text = $"{name}: {diff.Field} expected {diff.Expected}, got {diff.Actual}";
+                if (SoftFields.Contains(diff.Field))
+                    soft.Add(text);
+                else
+                    hard.Add(text);
+            }
+        }
+
+        if (match.UnexpectedActiveDisplays.Count > 0)
+            hard.Add($"unexpected active display(s): {string.Join(", ", match.UnexpectedActiveDisplays)}");
+
+        return (hard, soft);
+    }
+
+    private async Task<bool> TryRollbackAsync(
+        VantageProfile? rollback,
+        bool allowRollback,
+        IProgress<ApplyProgress>? progress,
+        List<string> log,
+        Action<ApplyStepKind, string> report)
+    {
+        if (!allowRollback || rollback is null)
+            return false;
+
+        report(ApplyStepKind.AutoRevert, "Restoring the previous configuration automatically");
+        var revertReport = await ApplyInternalAsync(rollback, progress, CancellationToken.None, allowRollback: false)
+            .ConfigureAwait(false);
+        log.AddRange(revertReport.Log.Select(l => "  (revert) " + l));
+        report(ApplyStepKind.AutoRevert, revertReport.Succeeded
+            ? "Previous configuration restored"
+            : "Rollback could not be fully verified — check your display settings");
+        return revertReport.Succeeded;
     }
 
     private static ApplyReport Fail(List<string> log, string reason)

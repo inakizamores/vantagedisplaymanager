@@ -37,41 +37,6 @@
                     IsOpen="{Binding StatusOpen, Mode=TwoWay}"
                     Margin="0,0,0,12" />
 
-                <!-- Auto-revert countdown after an apply -->
-                <Border
-                    Visibility="{Binding RevertBarVisible, Converter={StaticResource BoolToVis}}"
-                    Background="{DynamicResource ControlFillColorDefaultBrush}"
-                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                    BorderThickness="1"
-                    CornerRadius="8"
-                    Padding="16,12"
-                    Margin="0,0,0,12">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock
-                            Grid.Column="0"
-                            VerticalAlignment="Center"
-                            TextWrapping="Wrap"
-                            Text="{Binding RevertBarText}" />
-                        <ui:Button
-                            Grid.Column="1"
-                            Margin="12,0,0,0"
-                            Appearance="Primary"
-                            Icon="{ui:SymbolIcon Checkmark24}"
-                            Content="Keep changes"
-                            Command="{Binding KeepChangesCommand}" />
-                        <ui:Button
-                            Grid.Column="2"
-                            Margin="8,0,0,0"
-                            Content="Revert now"
-                            Command="{Binding RevertNowCommand}" />
-                    </Grid>
-                </Border>
-
                 <!-- Displays -->
                 <Grid Margin="0,4,0,8">
                     <Grid.ColumnDefinitions>
@@ -212,35 +177,12 @@
                     <ui:ToggleSwitch IsChecked="{Binding StartWithWindows, Mode=TwoWay}" />
                 </ui:CardControl>
 
-                <ui:CardControl Margin="0,0,0,8" Icon="{ui:SymbolIcon ArrowCounterclockwise24}">
-                    <ui:CardControl.Header>
-                        <StackPanel>
-                            <ui:TextBlock FontTypography="BodyStrong" Text="Auto-revert countdown" />
-                            <TextBlock
-                                Text="How long an applied change waits for confirmation before being undone"
-                                FontSize="12"
-                                Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
-                        </StackPanel>
-                    </ui:CardControl.Header>
-                    <StackPanel Orientation="Horizontal">
-                        <ComboBox
-                            MinWidth="80"
-                            ItemsSource="{Binding RevertOptions}"
-                            SelectedItem="{Binding RevertCountdownSeconds, Mode=TwoWay}" />
-                        <TextBlock
-                            Text="seconds"
-                            Margin="8,0,0,0"
-                            VerticalAlignment="Center"
-                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                    </StackPanel>
-                </ui:CardControl>
-
                 <TextBlock
                     Margin="0,8,0,0"
                     FontSize="12"
                     Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                     TextWrapping="Wrap"
-                    Text="Vantage keeps running in the system tray when you close this window." />
+                    Text="Vantage keeps running in the system tray when you close this window. Every profile switch is verified — if a change doesn't take effect correctly, your previous setup is restored automatically." />
             </StackPanel>
         </ScrollViewer>
     </Grid>

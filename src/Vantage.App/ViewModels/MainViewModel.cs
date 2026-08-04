@@ -106,26 +106,17 @@ public partial class MainViewModel : ObservableObject
     private readonly DisplayService _displayService;
     private readonly ProfileStore _store;
     private readonly ApplyEngine _engine;
-    private readonly AppSettings _settings;
     private readonly Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
     private bool _suppressSettingSideEffects;
 
-    private VantageProfile? _revertProfile;
-    private DispatcherTimer? _revertTimer;
-    private int _revertSecondsLeft;
-
-    public MainViewModel(DisplayService displayService, ProfileStore store, ApplyEngine engine, AppSettings settings)
+    public MainViewModel(DisplayService displayService, ProfileStore store, ApplyEngine engine)
     {
         _displayService = displayService;
         _store = store;
         _engine = engine;
-        _settings = settings;
 
         _suppressSettingSideEffects = true;
         StartWithWindows = StartupManager.IsEnabled();
-        RevertCountdownSeconds = RevertOptions.Contains(settings.RevertCountdownSeconds)
-            ? settings.RevertCountdownSeconds
-            : 15;
         _suppressSettingSideEffects = false;
 
         _ = RefreshAsync();
@@ -133,10 +124,7 @@ public partial class MainViewModel : ObservableObject
 
     // --- Settings ---
 
-    public int[] RevertOptions { get; } = [5, 10, 15, 30, 60];
-
     [ObservableProperty] private bool _startWithWindows;
-    [ObservableProperty] private int _revertCountdownSeconds;
 
     partial void OnStartWithWindowsChanged(bool value)
     {
@@ -158,21 +146,6 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    partial void OnRevertCountdownSecondsChanged(int value)
-    {
-        if (_suppressSettingSideEffects)
-            return;
-        _settings.RevertCountdownSeconds = value;
-        try
-        {
-            _settings.Save();
-        }
-        catch (Exception ex)
-        {
-            ShowStatus("Could not save settings", ex.Message, Wpf.Ui.Controls.InfoBarSeverity.Error);
-        }
-    }
-
     public ObservableCollection<DisplayItemViewModel> Displays { get; } = [];
     public ObservableCollection<ProfileItemViewModel> Profiles { get; } = [];
 
@@ -185,10 +158,6 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _statusTitle = "";
     [ObservableProperty] private string _statusMessage = "";
     [ObservableProperty] private Wpf.Ui.Controls.InfoBarSeverity _statusSeverity = Wpf.Ui.Controls.InfoBarSeverity.Informational;
-
-    // Auto-revert countdown bar (BLUEPRINT §5: "keep these settings?")
-    [ObservableProperty] private bool _revertBarVisible;
-    [ObservableProperty] private string _revertBarText = "";
 
     [RelayCommand]
     public async Task RefreshAsync()
@@ -296,32 +265,38 @@ public partial class MainViewModel : ObservableObject
         try
         {
             IsBusy = true;
-            CancelRevertCountdown(applyRevert: false);
-
-            // Snapshot the pre-apply state so the countdown can restore it.
             BusyText = $"Applying '{item.Name}'…";
-            var before = await Task.Run(_displayService.Capture);
-            _revertProfile = ProfileStore.FromSnapshot(before, "(revert)");
 
             var progress = new Progress<ApplyProgress>(p => BusyText = p.Message);
             var report = await Task.Run(() => _engine.ApplyAsync(item.Profile, progress));
 
             await RefreshAsync();
 
-            if (report.Succeeded)
+            // Fully automatic failure policy (no confirmations): the engine verified the
+            // result and rolled back on hard failure — just tell the user what happened.
+            if (report.Succeeded && report.Warnings.Count == 0)
             {
-                StartRevertCountdown();
+                ShowStatus("Profile applied", $"'{item.Name}' is now active.", Wpf.Ui.Controls.InfoBarSeverity.Success);
+            }
+            else if (report.Succeeded)
+            {
+                ShowStatus($"'{item.Name}' applied with warnings", string.Join("  ·  ", report.Warnings),
+                    Wpf.Ui.Controls.InfoBarSeverity.Warning);
+            }
+            else if (report.AutoReverted)
+            {
+                ShowStatus("Change didn't verify — reverted automatically",
+                    report.FailureReason ?? "The previous configuration was restored.",
+                    Wpf.Ui.Controls.InfoBarSeverity.Warning);
             }
             else
             {
-                ShowStatus("Apply finished with problems", report.FailureReason ?? "See log.", Wpf.Ui.Controls.InfoBarSeverity.Warning);
-                _revertProfile = null;
+                ShowStatus("Apply failed", report.FailureReason ?? "See log.", Wpf.Ui.Controls.InfoBarSeverity.Error);
             }
         }
         catch (Exception ex)
         {
             ShowStatus("Apply failed", ex.Message, Wpf.Ui.Controls.InfoBarSeverity.Error);
-            _revertProfile = null;
         }
         finally
         {
@@ -402,67 +377,6 @@ public partial class MainViewModel : ObservableObject
             BusyText = "";
             await RefreshAsync();
         }
-    }
-
-    private void StartRevertCountdown()
-    {
-        _revertSecondsLeft = _settings.RevertCountdownSeconds;
-        RevertBarVisible = true;
-        UpdateRevertText();
-
-        _revertTimer = new DispatcherTimer(DispatcherPriority.Normal, _dispatcher)
-        {
-            Interval = TimeSpan.FromSeconds(1),
-        };
-        _revertTimer.Tick += async (_, _) =>
-        {
-            _revertSecondsLeft--;
-            if (_revertSecondsLeft <= 0)
-            {
-                await RevertNowAsync();
-                return;
-            }
-            UpdateRevertText();
-        };
-        _revertTimer.Start();
-    }
-
-    private void UpdateRevertText() =>
-        RevertBarText = $"Display settings changed. Reverting in {_revertSecondsLeft} s unless you keep them.";
-
-    [RelayCommand]
-    private void KeepChanges() => CancelRevertCountdown(applyRevert: false);
-
-    [RelayCommand]
-    private async Task RevertNowAsync()
-    {
-        var revert = _revertProfile;
-        CancelRevertCountdown(applyRevert: false);
-        if (revert is null)
-            return;
-
-        try
-        {
-            IsBusy = true;
-            BusyText = "Restoring previous configuration…";
-            await Task.Run(() => _engine.ApplyAsync(revert));
-            ShowStatus("Reverted", "Previous display configuration restored.", Wpf.Ui.Controls.InfoBarSeverity.Informational);
-        }
-        finally
-        {
-            IsBusy = false;
-            BusyText = "";
-            await RefreshAsync();
-        }
-    }
-
-    private void CancelRevertCountdown(bool applyRevert)
-    {
-        _revertTimer?.Stop();
-        _revertTimer = null;
-        RevertBarVisible = false;
-        if (!applyRevert)
-            _revertProfile = null;
     }
 
     private void ShowStatus(string title, string message, Wpf.Ui.Controls.InfoBarSeverity severity)

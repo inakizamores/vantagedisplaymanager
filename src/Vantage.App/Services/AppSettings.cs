@@ -21,8 +21,7 @@ public sealed class AppSettings
 
     public int SchemaVersion { get; set; } = 1;
 
-    /// <summary>Seconds before an unconfirmed display change is automatically reverted.</summary>
-    public int RevertCountdownSeconds { get; set; } = 15;
+    // Future app-level settings land here; unknown fields in older files are ignored on load.
 
     public static AppSettings Load()
     {

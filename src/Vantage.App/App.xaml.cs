@@ -38,8 +38,7 @@ public partial class App : Application
 
         var displayService = new DisplayService();
         var store = new ProfileStore();
-        var settings = Vantage.App.Services.AppSettings.Load();
-        ViewModel = new MainViewModel(displayService, store, new ApplyEngine(displayService), settings);
+        ViewModel = new MainViewModel(displayService, store, new ApplyEngine(displayService));
 
         CreateTrayIcon();
 
