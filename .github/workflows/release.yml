@@ -18,9 +18,9 @@ jobs:
     name: Build & publish release
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '8.0.x'
 
@@ -84,7 +84,7 @@ jobs:
           (Get-Content .github/release-body-template.md -Raw) -replace '\{VERSION\}', $v | Out-File release/notes.md -Encoding utf8
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: vantage-${{ steps.ver.outputs.version }}
           path: release/assets/*
@@ -92,7 +92,7 @@ jobs:
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: Vantage ${{ steps.ver.outputs.version }}
           prerelease: ${{ contains(github.ref_name, '-') }}
