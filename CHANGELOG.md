@@ -3,7 +3,7 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [0.1.1-beta] — 2026-08-04
 
 ### Added
 - **Start with Windows** setting — registers a lightweight sign-in launch that opens straight
