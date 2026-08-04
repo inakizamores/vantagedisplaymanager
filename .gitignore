@@ -1,0 +1,14 @@
+# Reference repos for research (not part of this project)
+reference/
+
+# Build outputs
+bin/
+obj/
+dist/
+release/
+node_modules/
+
+# IDE
+.vs/
+.vscode/
+*.user
