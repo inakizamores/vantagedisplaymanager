@@ -116,13 +116,18 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
+                    <!-- All three stretch to the row height so the box and the buttons line up
+                         top and bottom; left to themselves the buttons sit shorter than the box. -->
                     <ui:TextBox
                         Grid.Column="0"
+                        VerticalAlignment="Stretch"
+                        VerticalContentAlignment="Center"
                         PlaceholderText="Name this setup (e.g. Desk, TV, Racing)…"
                         Text="{Binding NewProfileName, UpdateSourceTrigger=PropertyChanged}" />
                     <ui:Button
                         Grid.Column="1"
                         Margin="8,0,0,0"
+                        VerticalAlignment="Stretch"
                         Appearance="Primary"
                         Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
                         Icon="{ui:SymbolIcon Save24}"
@@ -132,6 +137,7 @@
                     <ui:Button
                         Grid.Column="2"
                         Margin="8,0,0,0"
+                        VerticalAlignment="Stretch"
                         Appearance="Secondary"
                         Icon="{ui:SymbolIcon Add24}"
                         Content="New preset…"

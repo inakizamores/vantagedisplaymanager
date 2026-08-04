@@ -3,6 +3,13 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- The profile name box and the "Save current setup" / "New preset…" buttons beside it were
+  different heights, so the row looked ragged. All three now stretch to the row height and
+  line up top and bottom.
+
 ## [0.4.0-beta] — 2026-08-04
 
 ### Changed
