@@ -8,6 +8,7 @@
 Save complete display setups — layout, resolution, refresh rate, HDR, scaling — and switch
 between them in one click, from the tray, or from a script.
 
+[![CI](https://github.com/inakizamores/vantagedisplaymanager/actions/workflows/ci.yml/badge.svg)](https://github.com/inakizamores/vantagedisplaymanager/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/inakizamores/vantagedisplaymanager?include_prereleases&label=release)](https://github.com/inakizamores/vantagedisplaymanager/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/inakizamores/vantagedisplaymanager/total)](https://github.com/inakizamores/vantagedisplaymanager/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)

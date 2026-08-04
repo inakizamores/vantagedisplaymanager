@@ -1,0 +1,15 @@
+# Categories for auto-generated release notes (appended below the download table).
+changelog:
+  exclude:
+    labels: [dependencies, documentation]
+  categories:
+    - title: ✨ New features
+      labels: [enhancement, feature]
+    - title: 🐛 Bug fixes
+      labels: [bug, fix]
+    - title: 🖥️ Display engine
+      labels: [display-engine, hdr, profiles]
+    - title: 🎨 UI / UX
+      labels: [ui]
+    - title: 🧰 Other changes
+      labels: ["*"]

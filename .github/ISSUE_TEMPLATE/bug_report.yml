@@ -1,0 +1,62 @@
+name: 🐛 Bug report
+description: Something broke, misbehaved, or didn't verify
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! Display bugs are almost always hardware-specific,
+        so the diagnostic output below is what makes them fixable.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what happened instead?
+      placeholder: Applied my "TV" profile and the second monitor stayed at 60 Hz…
+    validations:
+      required: true
+
+  - type: textarea
+    id: display-state
+    attributes:
+      label: Display state (`vantagectl list --json`)
+      description: |
+        Run this in a terminal and paste the output (portable/lite: from the unzip folder;
+        installer: `%LOCALAPPDATA%\VantageDisplayManager\current\vantagectl.exe list --json`).
+      render: json
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Vantage version
+      placeholder: 0.1.0-beta (Setup / portable / lite?)
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: Run `winver` — e.g. "Windows 11 24H2 (build 26100)"
+    validations:
+      required: true
+
+  - type: input
+    id: gpu
+    attributes:
+      label: GPU(s)
+      placeholder: RTX 4070 + Intel iGPU (hybrid)
+    validations:
+      required: false
+
+  - type: textarea
+    id: monitors
+    attributes:
+      label: Monitors & connections
+      placeholder: |
+        LG C2 42" over HDMI 2.1, Dell U2723QE over USB-C dock…
+    validations:
+      required: false

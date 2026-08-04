@@ -1,0 +1,99 @@
+name: Release
+
+# Push a tag like v0.2.0 or v0.2.0-beta and this workflow builds every
+# distributable (installer, portable, lite, update feed, checksums) and
+# publishes a GitHub Release. Tags containing '-' are marked pre-release.
+# workflow_dispatch runs a dry build that only uploads workflow artifacts.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & publish release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Derive version from tag
+        id: ver
+        shell: pwsh
+        run: |
+          $v = if ($env:GITHUB_REF -like 'refs/tags/v*') { $env:GITHUB_REF -replace '^refs/tags/v', '' } else { '0.0.0-ci' }
+          "version=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $v"
+
+      - name: Publish portable (self-contained single-file)
+        shell: pwsh
+        run: |
+          $v = '${{ steps.ver.outputs.version }}'
+          dotnet publish src/Vantage.App -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -p:Version=$v -o release/portable
+          dotnet publish src/Vantage.Cli -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -p:Version=$v -o release/portable
+
+      - name: Publish lite (framework-dependent)
+        shell: pwsh
+        run: |
+          $v = '${{ steps.ver.outputs.version }}'
+          dotnet publish src/Vantage.App -c Release -r win-x64 --self-contained false -p:DebugType=none -p:Version=$v -o release/lite
+          dotnet publish src/Vantage.Cli -c Release -r win-x64 --self-contained false -p:DebugType=none -p:Version=$v -o release/lite
+
+      - name: Publish installer payload (self-contained folder)
+        shell: pwsh
+        run: |
+          $v = '${{ steps.ver.outputs.version }}'
+          dotnet publish src/Vantage.App -c Release -r win-x64 --self-contained true -p:DebugType=none -p:Version=$v -o release/payload
+          dotnet publish src/Vantage.Cli -c Release -r win-x64 --self-contained true -p:DebugType=none -p:Version=$v -o release/payload
+
+      - name: Build installer (Velopack)
+        shell: pwsh
+        run: |
+          dotnet tool install --global vpk
+          vpk pack --packId VantageDisplayManager --packVersion ${{ steps.ver.outputs.version }} --packDir release/payload --mainExe Vantage.exe --packTitle "Vantage Display Manager" --packAuthors "Inaki Zamores" --icon src/Vantage.App/Assets/vantage.ico --outputDir release/installer
+
+      - name: Assemble assets + checksums
+        shell: pwsh
+        run: |
+          $v = '${{ steps.ver.outputs.version }}'
+          New-Item -ItemType Directory -Force release/assets | Out-Null
+          Copy-Item LICENSE, CHANGELOG.md release/portable/
+          Copy-Item LICENSE, CHANGELOG.md release/lite/
+          Compress-Archive -Path release/portable/* -DestinationPath "release/assets/Vantage-$v-win-x64-portable.zip" -CompressionLevel Optimal
+          Compress-Archive -Path release/lite/* -DestinationPath "release/assets/Vantage-$v-win-x64-lite.zip" -CompressionLevel Optimal
+          Copy-Item release/installer/VantageDisplayManager-win-Setup.exe release/assets/Vantage-Setup.exe
+          Copy-Item release/installer/*.nupkg release/assets/
+          Copy-Item release/installer/releases.win.json release/assets/
+          $lines = Get-ChildItem release/assets -File | ForEach-Object { "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name }
+          $lines | Out-File release/assets/checksums.txt -Encoding ascii
+          Get-ChildItem release/assets
+
+      - name: Render release notes
+        shell: pwsh
+        run: |
+          $v = '${{ steps.ver.outputs.version }}'
+          (Get-Content .github/release-body-template.md -Raw) -replace '\{VERSION\}', $v | Out-File release/notes.md -Encoding utf8
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: vantage-${{ steps.ver.outputs.version }}
+          path: release/assets/*
+          retention-days: 14
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Vantage ${{ steps.ver.outputs.version }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          body_path: release/notes.md
+          generate_release_notes: true
+          files: release/assets/*

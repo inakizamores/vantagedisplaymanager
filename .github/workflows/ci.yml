@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (Release, win-x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore Vantage.sln
+
+      - name: Build
+        run: dotnet build Vantage.sln -c Release --no-restore -warnaserror
+
+      - name: Test
+        shell: pwsh
+        run: |
+          $tests = Get-ChildItem tests -Recurse -Filter *.csproj -ErrorAction SilentlyContinue
+          if ($tests) { dotnet test Vantage.sln -c Release --no-build --verbosity normal }
+          else { Write-Host 'No test projects yet - skipping.' }
