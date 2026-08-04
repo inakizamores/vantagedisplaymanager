@@ -25,9 +25,16 @@ public sealed class ProfileStore
 
     public ProfileStore(string? filePath = null)
     {
-        _filePath = filePath ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Vantage", "profiles.json");
+        if (filePath is null)
+        {
+            // Default store lives in Documents (survives reinstalls, easy to migrate — P8).
+            VantageDataPaths.EnsureCreatedAndMigrated();
+            _filePath = VantageDataPaths.ProfilesFile;
+        }
+        else
+        {
+            _filePath = filePath;
+        }
     }
 
     public string FilePath => _filePath;

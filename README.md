@@ -99,6 +99,8 @@ normalized, versioned profile schema on top:
   per-display DPI/HDR/SDR-white with verify-by-re-query → final re-capture and match.
   When the same displays stay active, the topology replay is skipped entirely and modes are
   reconciled in a single staged desktop transition.
+- **Your data** — profiles and settings are plain JSON in `Documents\Vantage Display Manager`,
+  so they survive reinstalls and move to a new PC by copying one folder.
 
 The full design — including the research on DisplayMagician, Helios, Monitorian, twinkle-tray,
 HDRTray, and friends that informed it — lives in [docs/BLUEPRINT.md](docs/BLUEPRINT.md) and

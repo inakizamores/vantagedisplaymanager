@@ -3,6 +3,14 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [0.1.3-beta] — 2026-08-04
+
+### Changed
+- **Profiles and settings now live in `Documents\Vantage Display Manager`** (game-save style):
+  they survive uninstall/reinstall, are trivial to back up or copy to a new PC, and sync
+  automatically when Documents is OneDrive-redirected. Existing data from the old location
+  (`%LOCALAPPDATA%\Vantage`) is migrated automatically on first run.
+
 ## [0.1.2-beta] — 2026-08-04
 
 ### Fixed

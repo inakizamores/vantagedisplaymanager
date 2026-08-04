@@ -1,17 +1,16 @@
 using System.IO;
 using System.Text.Json;
+using Vantage.Core.Services;
 
 namespace Vantage.App.Services;
 
 /// <summary>
-/// Small app-level settings, stored beside the profile store
-/// (%LOCALAPPDATA%\Vantage\settings.json). Versioned like everything else (BLUEPRINT P8).
+/// Small app-level settings, stored beside the profile store in
+/// Documents\Vantage Display Manager. Versioned like everything else (BLUEPRINT P8).
 /// </summary>
 public sealed class AppSettings
 {
-    private static readonly string FilePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "Vantage", "settings.json");
+    private static string FilePath => VantageDataPaths.SettingsFile;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -25,6 +24,7 @@ public sealed class AppSettings
 
     public static AppSettings Load()
     {
+        VantageDataPaths.EnsureCreatedAndMigrated();
         try
         {
             if (File.Exists(FilePath))
