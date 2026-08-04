@@ -179,6 +179,13 @@
                                     <ui:Button
                                         Margin="8,0,0,0"
                                         Appearance="Secondary"
+                                        Icon="{ui:SymbolIcon Save24}"
+                                        ToolTip="Overwrite this profile with the current setup"
+                                        Command="{Binding DataContext.OverwriteProfileCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}" />
+                                    <ui:Button
+                                        Margin="8,0,0,0"
+                                        Appearance="Secondary"
                                         Content="Apply"
                                         IsEnabled="{Binding IsPossible}"
                                         Command="{Binding DataContext.ApplyProfileCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"

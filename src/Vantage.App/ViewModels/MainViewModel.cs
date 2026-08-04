@@ -400,6 +400,51 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task OverwriteProfileAsync(ProfileItemViewModel item)
+    {
+        if (IsBusy)
+            return;
+
+        var box = new Wpf.Ui.Controls.MessageBox
+        {
+            Title = "Overwrite profile",
+            Content = $"Replace '{item.Name}' with your current display setup? Its hotkey is kept.",
+            PrimaryButtonText = "Overwrite",
+            CloseButtonText = "Cancel",
+        };
+        if (await box.ShowDialogAsync() != Wpf.Ui.Controls.MessageBoxResult.Primary)
+            return;
+
+        try
+        {
+            IsBusy = true;
+            BusyText = $"Overwriting '{item.Name}' with the current setup…";
+            await Task.Run(() =>
+            {
+                var snapshot = _displayService.Capture();
+                var updated = ProfileStore.FromSnapshot(snapshot, item.Name) with
+                {
+                    Id = item.Profile.Id,
+                    CreatedAt = item.Profile.CreatedAt,
+                    Hotkey = item.Profile.Hotkey,
+                };
+                _store.Upsert(updated);
+            });
+            ShowStatus("Profile overwritten", $"'{item.Name}' now matches your current setup.", Wpf.Ui.Controls.InfoBarSeverity.Success);
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowStatus("Could not overwrite profile", ex.Message, Wpf.Ui.Controls.InfoBarSeverity.Error);
+        }
+        finally
+        {
+            IsBusy = false;
+            BusyText = "";
+        }
+    }
+
+    [RelayCommand]
     private async Task DeleteProfileAsync(ProfileItemViewModel item)
     {
         var box = new Wpf.Ui.Controls.MessageBox

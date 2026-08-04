@@ -3,6 +3,12 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [0.3.1-beta] — 2026-08-04
+
+### Added
+- **Overwrite button on every profile card** — replaces the profile with your current display
+  setup (after confirmation), keeping its identity and hotkey.
+
 ## [0.3.0-beta] — 2026-08-04
 
 ### Added
