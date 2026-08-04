@@ -13,7 +13,7 @@ public sealed record ThumbnailDisplay(double X, double Y, double Width, double H
 /// </summary>
 public static class LayoutThumbnail
 {
-    public static ImageSource Render(IReadOnlyList<ThumbnailDisplay> displays, double targetWidth = 132, double targetHeight = 60)
+    public static ImageSource Render(IReadOnlyList<ThumbnailDisplay> displays, double targetWidth = 88, double targetHeight = 40)
     {
         var group = new DrawingGroup();
 
@@ -53,14 +53,21 @@ public static class LayoutThumbnail
                 group.Children.Add(new GeometryDrawing(
                     fill, null, new RectangleGeometry(rect, 1.5, 1.5)));
 
-                // HDR badge: a brighter strip along the top edge of the panel.
+                // HDR badge: small text label, top-left corner with even padding, unscaled.
                 if (d.HdrOn)
                 {
-                    var strip = new Rect(rect.X + rect.Width * 0.12, rect.Y + rect.Height * 0.14,
-                        rect.Width * 0.28, Math.Max(1.5, rect.Height * 0.10));
-                    group.Children.Add(new GeometryDrawing(
-                        Freeze(new SolidColorBrush(Colors.White)), null,
-                        new RectangleGeometry(strip, 1, 1)));
+                    var label = new FormattedText(
+                        "HDR",
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        FlowDirection.LeftToRight,
+                        new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal),
+                        6.0,
+                        Brushes.White,
+                        pixelsPerDip: 1.0);
+                    const double pad = 3;
+                    var geometry = label.BuildGeometry(new Point(rect.X + pad, rect.Y + pad));
+                    geometry.Freeze();
+                    group.Children.Add(new GeometryDrawing(Freeze(new SolidColorBrush(Colors.White)), null, geometry));
                 }
 
                 // Stand: small centered pedestal under the panel.

@@ -3,6 +3,12 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [0.2.1-beta] — 2026-08-04
+
+### Fixed
+- Profile thumbnails: the HDR marker is now a crisp "HDR" text badge in the panel's top-left
+  corner with even padding, instead of a stretched strip.
+
 ## [0.2.0-beta] — 2026-08-04
 
 ### Added
