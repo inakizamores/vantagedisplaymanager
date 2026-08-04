@@ -3,6 +3,12 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [0.1.2-beta] — 2026-08-04
+
+### Fixed
+- Taskbar showed a blank icon: the app icon used PNG-compressed frames at all sizes, which
+  the Windows shell cannot decode below 256 px. Small frames are now classic BMP entries.
+
 ## [0.1.1-beta] — 2026-08-04
 
 ### Added
