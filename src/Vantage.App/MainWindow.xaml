@@ -124,7 +124,7 @@
                         Grid.Column="1"
                         Margin="8,0,0,0"
                         Appearance="Primary"
-                        Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
+                        Foreground="White"
                         Icon="{ui:SymbolIcon Save24}"
                         Content="Save current setup"
                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"

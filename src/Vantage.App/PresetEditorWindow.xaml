@@ -79,7 +79,7 @@
             <ui:Button
                 Margin="8,0,0,0"
                 Appearance="Primary"
-                Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
+                Foreground="White"
                 Icon="{ui:SymbolIcon Checkmark24}"
                 Content="Create preset"
                 Click="OnCreate" />

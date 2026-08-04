@@ -41,7 +41,7 @@
                 x:Name="SaveButton"
                 Margin="8,0,0,0"
                 Appearance="Primary"
-                Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
+                Foreground="White"
                 Content="Save"
                 IsEnabled="False"
                 Click="OnSave" />
