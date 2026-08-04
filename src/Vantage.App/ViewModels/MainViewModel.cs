@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Vantage.App.Services;
 using Vantage.Core.Models;
 using Vantage.Core.Services;
 
@@ -105,18 +106,71 @@ public partial class MainViewModel : ObservableObject
     private readonly DisplayService _displayService;
     private readonly ProfileStore _store;
     private readonly ApplyEngine _engine;
+    private readonly AppSettings _settings;
     private readonly Dispatcher _dispatcher = Dispatcher.CurrentDispatcher;
+    private bool _suppressSettingSideEffects;
 
     private VantageProfile? _revertProfile;
     private DispatcherTimer? _revertTimer;
     private int _revertSecondsLeft;
 
-    public MainViewModel(DisplayService displayService, ProfileStore store, ApplyEngine engine)
+    public MainViewModel(DisplayService displayService, ProfileStore store, ApplyEngine engine, AppSettings settings)
     {
         _displayService = displayService;
         _store = store;
         _engine = engine;
+        _settings = settings;
+
+        _suppressSettingSideEffects = true;
+        StartWithWindows = StartupManager.IsEnabled();
+        RevertCountdownSeconds = RevertOptions.Contains(settings.RevertCountdownSeconds)
+            ? settings.RevertCountdownSeconds
+            : 15;
+        _suppressSettingSideEffects = false;
+
         _ = RefreshAsync();
+    }
+
+    // --- Settings ---
+
+    public int[] RevertOptions { get; } = [5, 10, 15, 30, 60];
+
+    [ObservableProperty] private bool _startWithWindows;
+    [ObservableProperty] private int _revertCountdownSeconds;
+
+    partial void OnStartWithWindowsChanged(bool value)
+    {
+        if (_suppressSettingSideEffects)
+            return;
+        try
+        {
+            if (value)
+                StartupManager.Enable();
+            else
+                StartupManager.Disable();
+        }
+        catch (Exception ex)
+        {
+            ShowStatus("Could not update startup setting", ex.Message, Wpf.Ui.Controls.InfoBarSeverity.Error);
+            _suppressSettingSideEffects = true;
+            StartWithWindows = StartupManager.IsEnabled();
+            _suppressSettingSideEffects = false;
+        }
+    }
+
+    partial void OnRevertCountdownSecondsChanged(int value)
+    {
+        if (_suppressSettingSideEffects)
+            return;
+        _settings.RevertCountdownSeconds = value;
+        try
+        {
+            _settings.Save();
+        }
+        catch (Exception ex)
+        {
+            ShowStatus("Could not save settings", ex.Message, Wpf.Ui.Controls.InfoBarSeverity.Error);
+        }
     }
 
     public ObservableCollection<DisplayItemViewModel> Displays { get; } = [];
@@ -352,7 +406,7 @@ public partial class MainViewModel : ObservableObject
 
     private void StartRevertCountdown()
     {
-        _revertSecondsLeft = 15;
+        _revertSecondsLeft = _settings.RevertCountdownSeconds;
         RevertBarVisible = true;
         UpdateRevertText();
 

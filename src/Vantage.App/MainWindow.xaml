@@ -196,12 +196,51 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
+                <!-- Settings -->
+                <ui:TextBlock FontTypography="Subtitle" Text="Settings" Margin="0,20,0,8" />
+
+                <ui:CardControl Margin="0,0,0,8" Icon="{ui:SymbolIcon Power24}">
+                    <ui:CardControl.Header>
+                        <StackPanel>
+                            <ui:TextBlock FontTypography="BodyStrong" Text="Start with Windows" />
+                            <TextBlock
+                                Text="Opens quietly in the system tray when you sign in — no window, instant profiles"
+                                FontSize="12"
+                                Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                        </StackPanel>
+                    </ui:CardControl.Header>
+                    <ui:ToggleSwitch IsChecked="{Binding StartWithWindows, Mode=TwoWay}" />
+                </ui:CardControl>
+
+                <ui:CardControl Margin="0,0,0,8" Icon="{ui:SymbolIcon ArrowCounterclockwise24}">
+                    <ui:CardControl.Header>
+                        <StackPanel>
+                            <ui:TextBlock FontTypography="BodyStrong" Text="Auto-revert countdown" />
+                            <TextBlock
+                                Text="How long an applied change waits for confirmation before being undone"
+                                FontSize="12"
+                                Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                        </StackPanel>
+                    </ui:CardControl.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ComboBox
+                            MinWidth="80"
+                            ItemsSource="{Binding RevertOptions}"
+                            SelectedItem="{Binding RevertCountdownSeconds, Mode=TwoWay}" />
+                        <TextBlock
+                            Text="seconds"
+                            Margin="8,0,0,0"
+                            VerticalAlignment="Center"
+                            Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </ui:CardControl>
+
                 <TextBlock
                     Margin="0,8,0,0"
                     FontSize="12"
                     Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                     TextWrapping="Wrap"
-                    Text="Vantage keeps running in the system tray when you close this window. Applying a profile always offers a 15-second revert window." />
+                    Text="Vantage keeps running in the system tray when you close this window." />
             </StackPanel>
         </ScrollViewer>
     </Grid>

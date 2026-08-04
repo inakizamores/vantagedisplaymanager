@@ -33,12 +33,19 @@ public partial class App : Application
         Wpf.Ui.Appearance.ApplicationThemeManager.ApplySystemTheme(false);
         WindowsAccent.Apply();
 
+        // If "start with Windows" is on, keep the registered exe path current.
+        Vantage.App.Services.StartupManager.ReconcileOnLaunch();
+
         var displayService = new DisplayService();
         var store = new ProfileStore();
-        ViewModel = new MainViewModel(displayService, store, new ApplyEngine(displayService));
+        var settings = Vantage.App.Services.AppSettings.Load();
+        ViewModel = new MainViewModel(displayService, store, new ApplyEngine(displayService), settings);
 
         CreateTrayIcon();
-        ShowMainWindow();
+
+        // --tray (used by the sign-in Run entry) starts lightweight: tray icon only.
+        if (!e.Args.Contains(Vantage.App.Services.StartupManager.TrayArgument))
+            ShowMainWindow();
     }
 
     private void CreateTrayIcon()
