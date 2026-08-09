@@ -16,12 +16,17 @@ public sealed record AvailableUpdate(string Version, string? ReleaseNotes, long 
 /// <c>Documents\Vantage Display Manager</c>, deliberately outside the install folder, and preset
 /// shortcuts are re-pointed by <see cref="ShortcutReconciler"/> from the after-update hook.
 ///
-/// Every release so far is tagged as a pre-release (they all carry <c>-beta</c>), so the source
-/// is configured to see them; a stable 1.0 tag would be picked up by the same feed.
+/// From 1.0 on, installed copies follow the stable channel only: a client that shipped as a
+/// stable release is not offered <c>-beta</c> prereleases. (The 0.x betas shipped with
+/// <c>prerelease: true</c> baked in, so they still see stable releases — GitHub prerelease
+/// filtering is only ever additive — and update themselves onto the stable channel.)
 /// </summary>
 public sealed class UpdateService
 {
     private const string RepositoryUrl = "https://github.com/inakizamores/vantagedisplaymanager";
+
+    /// <summary>Where a copy that can't self-update (portable, debugger) sends the user.</summary>
+    public const string ReleasesUrl = RepositoryUrl + "/releases";
 
     private readonly UpdateManager? _manager;
     private UpdateInfo? _pending;
@@ -31,7 +36,7 @@ public sealed class UpdateService
         try
         {
             _manager = new UpdateManager(
-                new GithubSource(RepositoryUrl, accessToken: null, prerelease: true),
+                new GithubSource(RepositoryUrl, accessToken: null, prerelease: false),
                 new UpdateOptions { AllowVersionDowngrade = false });
         }
         catch (Exception)

@@ -20,6 +20,13 @@ public sealed class AppSettings
 
     public int SchemaVersion { get; set; } = 1;
 
+    /// <summary>Quiet update check against GitHub at every launch. On by default; the off
+    /// switch exists for people who'd rather no app phones anywhere unprompted.</summary>
+    public bool CheckForUpdatesAtStartup { get; set; } = true;
+
+    /// <summary>Closing the window hides to the tray (default) instead of exiting.</summary>
+    public bool CloseToTray { get; set; } = true;
+
     // Future app-level settings land here; unknown fields in older files are ignored on load.
 
     public static AppSettings Load()

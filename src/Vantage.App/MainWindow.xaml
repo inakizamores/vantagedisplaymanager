@@ -10,7 +10,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     d:DataContext="{d:DesignInstance Type=vm:MainViewModel}"
-    Title="Vantage"
+    Title="Vantage Display Manager"
     Icon="pack://application:,,,/Assets/vantage.ico"
     Width="880"
     Height="760"
@@ -148,6 +148,30 @@
                         Command="{Binding NewPresetCommand}" />
                 </Grid>
 
+                <!-- First-run empty state: the tray menu and CLI both explain themselves when
+                     there are no profiles; the main window shouldn't be the one that doesn't. -->
+                <Border
+                    Visibility="{Binding HasProfiles, Converter={StaticResource InverseBoolToVis}}"
+                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="20,16"
+                    Margin="0,0,0,8">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="Board24" FontSize="20" Margin="0,0,10,0"
+                                           Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                            <ui:TextBlock FontTypography="BodyStrong" Text="No profiles yet" />
+                        </StackPanel>
+                        <TextBlock
+                            Margin="0,6,0,0"
+                            TextWrapping="Wrap"
+                            Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                            Text="Arrange your displays the way you like — here with Arrange, or in Windows Settings — then name the setup above and press Save current setup. Each saved profile switches everything back in one click, one hotkey, or one Start menu shortcut." />
+                    </StackPanel>
+                </Border>
+
                 <ItemsControl ItemsSource="{Binding Profiles}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type vm:ProfileItemViewModel}">
@@ -246,6 +270,53 @@
                     <ui:ToggleSwitch IsChecked="{Binding StartWithWindows, Mode=TwoWay}" />
                 </ui:CardControl>
 
+                <ui:CardControl Margin="0,0,0,8" Icon="{ui:SymbolIcon Dismiss24}">
+                    <ui:CardControl.Header>
+                        <StackPanel>
+                            <ui:TextBlock FontTypography="BodyStrong" Text="Keep running in the tray when closed" />
+                            <TextBlock
+                                Text="Closing the window keeps profiles, hotkeys and shortcuts one right-click away. Off means the close button exits Vantage entirely"
+                                FontSize="12"
+                                TextWrapping="Wrap"
+                                Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                        </StackPanel>
+                    </ui:CardControl.Header>
+                    <ui:ToggleSwitch IsChecked="{Binding CloseToTray, Mode=TwoWay}" />
+                </ui:CardControl>
+
+                <ui:CardControl Margin="0,0,0,8" Icon="{ui:SymbolIcon Folder24}">
+                    <ui:CardControl.Header>
+                        <StackPanel>
+                            <ui:TextBlock FontTypography="BodyStrong" Text="Your data" />
+                            <TextBlock
+                                Text="Profiles, settings, shortcut icons and the diagnostic log live in Documents\Vantage Display Manager — they survive updates and reinstalls"
+                                FontSize="12"
+                                TextWrapping="Wrap"
+                                Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                        </StackPanel>
+                    </ui:CardControl.Header>
+                    <ui:Button
+                        VerticalAlignment="Stretch"
+                        Appearance="Secondary"
+                        Icon="{ui:SymbolIcon FolderOpen24}"
+                        Content="Open folder"
+                        Command="{Binding OpenDataFolderCommand}" />
+                </ui:CardControl>
+
+                <ui:CardControl Margin="0,0,0,8" Icon="{ui:SymbolIcon ArrowSync24}">
+                    <ui:CardControl.Header>
+                        <StackPanel>
+                            <ui:TextBlock FontTypography="BodyStrong" Text="Check for updates at startup" />
+                            <TextBlock
+                                Text="A quiet look at GitHub when Vantage starts — nothing downloads or installs without you choosing it"
+                                FontSize="12"
+                                TextWrapping="Wrap"
+                                Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                        </StackPanel>
+                    </ui:CardControl.Header>
+                    <ui:ToggleSwitch IsChecked="{Binding CheckUpdatesAtStartup, Mode=TwoWay}" />
+                </ui:CardControl>
+
                 <ui:CardControl Margin="0,0,0,8" Icon="{ui:SymbolIcon ArrowSync24}">
                     <ui:CardControl.Header>
                         <StackPanel>
@@ -264,14 +335,21 @@
                             IsIndeterminate="True"
                             Visibility="{Binding IsCheckingForUpdates, Converter={StaticResource BoolToVis}}" />
                         <!-- One button, two jobs: check while up to date, install once there's
-                             something to install. -->
+                             something to install. Portable copies get a link instead. -->
+                        <ui:Button
+                            VerticalAlignment="Stretch"
+                            Appearance="Secondary"
+                            Icon="{ui:SymbolIcon Open24}"
+                            Content="Releases page"
+                            Visibility="{Binding CanSelfUpdate, Converter={StaticResource InverseBoolToVis}}"
+                            Command="{Binding OpenReleasesPageCommand}" />
                         <ui:Button
                             VerticalAlignment="Stretch"
                             Appearance="Secondary"
                             Icon="{ui:SymbolIcon ArrowSync24}"
                             Content="Check for updates"
                             IsEnabled="{Binding IsCheckingForUpdates, Converter={StaticResource InverseBool}}"
-                            Visibility="{Binding HasUpdate, Converter={StaticResource InverseBoolToVis}}"
+                            Visibility="{Binding ShowCheckButton, Converter={StaticResource BoolToVis}}"
                             Command="{Binding CheckForUpdatesCommand}"
                             CommandParameter="{StaticResource False}" />
                         <ui:Button
@@ -290,7 +368,7 @@
                     FontSize="12"
                     Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                     TextWrapping="Wrap"
-                    Text="Vantage keeps running in the system tray when you close this window. Every profile switch is verified — if a change doesn't take effect correctly, your previous setup is restored automatically." />
+                    Text="Every profile switch is verified — if a change doesn't take effect correctly, your previous setup is restored automatically." />
             </StackPanel>
         </ScrollViewer>
     </Grid>

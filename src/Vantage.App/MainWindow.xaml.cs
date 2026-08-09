@@ -48,14 +48,12 @@ public partial class MainWindow : Window
 
         // Native Windows frame, themed: dark title bar + system caption buttons + Mica.
         // No custom chrome — the min/max/close buttons are the OS's own.
-        var hwnd = source.Handle;
-        var dark = Wpf.Ui.Appearance.ApplicationThemeManager.GetAppTheme() == Wpf.Ui.Appearance.ApplicationTheme.Dark ? 1 : 0;
-        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ref dark, sizeof(int));
+        RefreshTitleBarTheme();
 
         if (Vantage.Interop.WindowsVersion.IsWindows11OrGreater)
         {
             var backdrop = DWMSBT_MAINWINDOW;
-            DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, ref backdrop, sizeof(int));
+            DwmSetWindowAttribute(source.Handle, DWMWA_SYSTEMBACKDROP_TYPE, ref backdrop, sizeof(int));
         }
     }
 
@@ -71,8 +69,26 @@ public partial class MainWindow : Window
 
     protected override void OnClosing(CancelEventArgs e)
     {
-        // Tray-first app: closing the window hides it, the tray keeps Vantage alive.
+        // Tray-first by default: closing the window hides it, the tray keeps Vantage alive.
+        // The Settings toggle turns the close button into a real exit instead.
+        if (DataContext is MainViewModel { CloseToTray: false })
+        {
+            ((App)Application.Current).ExitApplication();
+            return;
+        }
         e.Cancel = true;
         Hide();
+    }
+
+    /// <summary>
+    /// Re-syncs the DWM dark-title-bar flag with the current app theme. Called at first
+    /// show and again whenever the OS theme changes while we're running.
+    /// </summary>
+    public void RefreshTitleBarTheme()
+    {
+        if (PresentationSource.FromVisual(this) is not HwndSource source)
+            return;
+        var dark = Wpf.Ui.Appearance.ApplicationThemeManager.GetAppTheme() == Wpf.Ui.Appearance.ApplicationTheme.Dark ? 1 : 0;
+        DwmSetWindowAttribute(source.Handle, DWMWA_USE_IMMERSIVE_DARK_MODE, ref dark, sizeof(int));
     }
 }

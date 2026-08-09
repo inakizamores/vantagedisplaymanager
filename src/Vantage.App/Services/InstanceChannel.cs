@@ -72,6 +72,14 @@ public static class InstanceChannel
                 // previous server instance is being torn down. Back off, then listen again.
                 Thread.Sleep(250);
             }
+            catch (Exception ex)
+            {
+                // Anything else unhandled on this background thread would take the whole
+                // process down — and with it the tray icon and every hotkey. Log, back off,
+                // keep serving.
+                Vantage.Core.Services.AppLog.Error("IPC", ex, "Listener fault");
+                Thread.Sleep(1000);
+            }
         }
     }
 }

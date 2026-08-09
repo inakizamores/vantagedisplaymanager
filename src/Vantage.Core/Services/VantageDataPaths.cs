@@ -31,17 +31,21 @@ public static class VantageDataPaths
     /// Creates the data folder and, on first run of 0.1.3+, copies any data found in the
     /// legacy location. Existing files in Documents are never overwritten.
     /// </summary>
-    public static void EnsureCreatedAndMigrated()
-    {
-        Directory.CreateDirectory(Root);
+    public static void EnsureCreatedAndMigrated() => EnsureCreatedAndMigrated(Root, LegacyRoot);
 
-        if (!Directory.Exists(LegacyRoot))
+    /// <summary>Parameterized core of the migration, so tests can run it over temp folders
+    /// instead of the signed-in user's real Documents.</summary>
+    internal static void EnsureCreatedAndMigrated(string root, string legacyRoot)
+    {
+        Directory.CreateDirectory(root);
+
+        if (!Directory.Exists(legacyRoot))
             return;
 
         foreach (var name in MigratableFiles)
         {
-            var source = Path.Combine(LegacyRoot, name);
-            var dest = Path.Combine(Root, name);
+            var source = Path.Combine(legacyRoot, name);
+            var dest = Path.Combine(root, name);
             try
             {
                 if (File.Exists(source) && !File.Exists(dest))

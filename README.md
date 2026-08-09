@@ -74,7 +74,7 @@ as a thing you can return to.
 | `Vantage-<version>-win-x64-portable.zip` | No install: unzip anywhere and run `Vantage.exe`. Fully self-contained — no .NET required |
 | `Vantage-<version>-win-x64-lite.zip` | Small download if you already have the [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
 
-> **SmartScreen note (beta):** binaries are not yet code-signed, so Windows may show
+> **SmartScreen note:** binaries are not yet code-signed, so Windows may show
 > "Windows protected your PC" on first run. Click **More info → Run anyway**, and verify the
 > SHA-256 against `checksums.txt` if in doubt. Code signing is planned via SignPath.
 
@@ -176,6 +176,7 @@ vantagectl capture <name>        Save the current configuration as a profile
 vantagectl apply <name>          Apply a profile (validated + verified + auto-revert)
 vantagectl active                Which profile matches right now?
 vantagectl profiles              List profiles with active/available status
+vantagectl delete <name>         Delete a profile
 vantagectl hdr on|off [n]        Toggle HDR on all capable displays, or one
 vantagectl modes [n]             Supported resolutions/refresh rates per display
 vantagectl variant …             Create a preset variant of the current setup
@@ -184,7 +185,8 @@ vantagectl snapshot              Full state dump (diagnostics / test fixtures)
 
 Add `--json` to `list`, `profiles`, or `active` for machine-readable output.
 
-`Vantage.exe` itself takes three switches, the ones shortcuts and the sign-in entry use:
+`Vantage.exe` itself takes three switches (plus `--help`), the ones shortcuts and the
+sign-in entry use:
 
 ```text
 Vantage.exe --apply <profile id or name>   Switch to a profile and exit, no window
@@ -283,7 +285,10 @@ pwsh build/make-branding.ps1
 
 **Shipped so far** — see the [changelog](CHANGELOG.md): verified profile engine with automatic
 rollback (0.1.x), preset editor + hotkeys + layout editor + layout thumbnails + engine tests
-(0.2.x), per-profile GPU color depth + profile overwrite (0.3.x).
+(0.2.x), per-profile GPU color depth + profile overwrite (0.3.x), rebrand + generated asset
+pipeline (0.4.x), Start menu preset shortcuts + in-app updates + the no-sleep apply engine
+(0.6.x), crash logging + tray failure notifications + live theme switching + first-run and
+settings polish (1.0).
 
 ## Credits
 

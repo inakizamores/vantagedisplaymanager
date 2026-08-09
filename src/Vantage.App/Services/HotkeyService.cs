@@ -40,19 +40,33 @@ public sealed class HotkeyService : IDisposable
         _source.AddHook(WndProc);
     }
 
-    /// <summary>Re-registers everything; returns gestures that could not be registered (conflicts).</summary>
-    public List<string> RegisterAll(IEnumerable<(Guid ProfileId, string Gesture)> hotkeys)
+    private string? _lastRegisteredSignature;
+    private List<(Guid ProfileId, string Gesture)> _lastFailures = [];
+
+    /// <summary>
+    /// Re-registers everything; returns the entries that could not be registered (conflicts
+    /// with another app's hotkeys), keyed by profile so the message can name the profile.
+    /// When the desired set hasn't changed since the last call — the common case, since this
+    /// runs after every refresh — nothing is unregistered, so there is no dead window in
+    /// which a hotkey press falls through.
+    /// </summary>
+    public List<(Guid ProfileId, string Gesture)> RegisterAll(IEnumerable<(Guid ProfileId, string Gesture)> hotkeys)
     {
+        var desired = hotkeys.ToList();
+        var signature = string.Join("\n", desired.Select(h => $"{h.ProfileId}:{h.Gesture}"));
+        if (signature == _lastRegisteredSignature)
+            return _lastFailures;
+
         foreach (var id in _registrations.Keys)
             UnregisterHotKey(_source.Handle, id);
         _registrations.Clear();
 
-        var failures = new List<string>();
-        foreach (var (profileId, gesture) in hotkeys)
+        var failures = new List<(Guid, string)>();
+        foreach (var (profileId, gesture) in desired)
         {
             if (!TryParseGesture(gesture, out var modifiers, out var vk))
             {
-                failures.Add(gesture);
+                failures.Add((profileId, gesture));
                 continue;
             }
 
@@ -60,9 +74,27 @@ public sealed class HotkeyService : IDisposable
             if (RegisterHotKey(_source.Handle, id, modifiers | MOD_NOREPEAT, vk))
                 _registrations[id] = profileId;
             else
-                failures.Add(FormatGesture(gesture));
+                failures.Add((profileId, gesture));
         }
+
+        _lastRegisteredSignature = signature;
+        _lastFailures = failures;
         return failures;
+    }
+
+    /// <summary>
+    /// Whether the OS would accept this gesture right now. Only meaningful for a gesture this
+    /// service has not itself registered — probing one of our own always reports taken.
+    /// </summary>
+    public bool IsGestureAvailable(string gesture)
+    {
+        if (!TryParseGesture(gesture, out var modifiers, out var vk))
+            return false;
+        const int probeId = 0x3FFF; // outside the range _nextId ever reaches in practice
+        if (!RegisterHotKey(_source.Handle, probeId, modifiers | MOD_NOREPEAT, vk))
+            return false;
+        UnregisterHotKey(_source.Handle, probeId);
+        return true;
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)

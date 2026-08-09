@@ -5,8 +5,13 @@ using Vantage.Core.Models;
 namespace Vantage.Core.Services;
 
 /// <summary>
-/// Versioned JSON profile store (BLUEPRint P8): UTF-8, no polymorphic type handling,
+/// Versioned JSON profile store (BLUEPRINT P8): UTF-8, no polymorphic type handling,
 /// atomic writes, backup before any schema migration.
+///
+/// The file is shared by several writers — the app's view model, the shortcut reconciler on
+/// a background thread, and headless <c>--apply</c> processes — so every read-modify-write
+/// runs under a named mutex keyed on the file path. In-process, distinct ProfileStore
+/// instances over the same file serialize through that same mutex.
 /// </summary>
 public sealed class ProfileStore
 {
@@ -21,7 +26,7 @@ public sealed class ProfileStore
     };
 
     private readonly string _filePath;
-    private readonly object _gate = new();
+    private readonly Mutex _fileMutex;
 
     public ProfileStore(string? filePath = null)
     {
@@ -35,50 +40,145 @@ public sealed class ProfileStore
         {
             _filePath = filePath;
         }
+
+        // Named per path so test stores over temp files don't contend with the real one.
+        var key = Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(_filePath.ToUpperInvariant())))[..16];
+        _fileMutex = new Mutex(false, $@"Local\VantageProfileStore-{key}");
     }
 
     public string FilePath => _filePath;
 
+    /// <summary>
+    /// Set when <see cref="Load"/> had to recover from a corrupt file — a sentence the UI
+    /// can surface. Cleared on the next clean load.
+    /// </summary>
+    public string? LastRecoveryMessage { get; private set; }
+
     public ProfileFileEnvelope Load()
     {
-        lock (_gate)
+        using var _ = AcquireFileLock();
+
+        if (!File.Exists(_filePath))
+            return new ProfileFileEnvelope();
+
+        try
         {
-            if (!File.Exists(_filePath))
-                return new ProfileFileEnvelope();
-
-            using var stream = File.OpenRead(_filePath);
-            var envelope = JsonSerializer.Deserialize<ProfileFileEnvelope>(stream, JsonOptions)
-                ?? new ProfileFileEnvelope();
-
-            if (envelope.SchemaVersion > CurrentSchemaVersion)
-                throw new InvalidOperationException(
-                    $"Profile store schema v{envelope.SchemaVersion} is newer than this build supports (v{CurrentSchemaVersion}). Update Vantage.");
-
-            // Future migrations: back up, then transform envelope stepwise to CurrentSchemaVersion.
+            var envelope = ReadEnvelope(_filePath);
+            LastRecoveryMessage = null;
             return envelope;
         }
+        catch (JsonException ex)
+        {
+            // A truncated or mangled file (power loss, interrupted OneDrive sync) must not
+            // make the app unstartable. Preserve the evidence, then fall back to the .bak
+            // written by the last successful Save.
+            AppLog.Error(nameof(ProfileStore), ex, $"'{_filePath}' is corrupt");
+            var quarantined = Quarantine();
+
+            var backup = _filePath + ".bak";
+            if (File.Exists(backup))
+            {
+                try
+                {
+                    var restored = ReadEnvelope(backup);
+                    File.Copy(backup, _filePath, overwrite: true);
+                    LastRecoveryMessage =
+                        "The profile file was damaged and has been restored from its automatic backup. " +
+                        "Recent changes may be missing.";
+                    AppLog.Write(nameof(ProfileStore), $"Restored from backup; corrupt file kept as '{quarantined}'.");
+                    return restored;
+                }
+                catch (JsonException backupEx)
+                {
+                    AppLog.Error(nameof(ProfileStore), backupEx, "Backup is corrupt too");
+                }
+            }
+
+            LastRecoveryMessage =
+                "The profile file was damaged and could not be recovered. Starting with an empty list — " +
+                $"the damaged file was kept as '{Path.GetFileName(quarantined)}'.";
+            return new ProfileFileEnvelope();
+        }
+    }
+
+    private static ProfileFileEnvelope ReadEnvelope(string path)
+    {
+        using var stream = File.OpenRead(path);
+        var envelope = JsonSerializer.Deserialize<ProfileFileEnvelope>(stream, JsonOptions)
+            ?? new ProfileFileEnvelope();
+
+        if (envelope.SchemaVersion > CurrentSchemaVersion)
+            throw new InvalidOperationException(
+                $"Profile store schema v{envelope.SchemaVersion} is newer than this build supports (v{CurrentSchemaVersion}). Update Vantage.");
+
+        // Future migrations: back up, then transform envelope stepwise to CurrentSchemaVersion.
+        return envelope;
+    }
+
+    /// <summary>Moves the corrupt file aside under a timestamped name and returns that path.</summary>
+    private string Quarantine()
+    {
+        var target = $"{_filePath}.corrupt-{DateTimeOffset.Now:yyyyMMdd-HHmmss}";
+        try
+        {
+            File.Move(_filePath, target, overwrite: true);
+        }
+        catch (IOException)
+        {
+            // If even the move fails, the JsonException fallback path still writes a fresh file.
+        }
+        return target;
     }
 
     public void Save(ProfileFileEnvelope envelope)
     {
-        lock (_gate)
+        using var _ = AcquireFileLock();
+
+        envelope.LastUpdated = DateTimeOffset.Now;
+        var dir = Path.GetDirectoryName(_filePath)!;
+        Directory.CreateDirectory(dir);
+
+        // Atomic write: serialize to a temp file, then swap it in.
+        var tmp = _filePath + ".tmp";
+        using (var stream = File.Create(tmp))
         {
-            envelope.LastUpdated = DateTimeOffset.Now;
-            var dir = Path.GetDirectoryName(_filePath)!;
-            Directory.CreateDirectory(dir);
-
-            // Atomic write: serialize to a temp file, then swap it in.
-            var tmp = _filePath + ".tmp";
-            using (var stream = File.Create(tmp))
-            {
-                JsonSerializer.Serialize(stream, envelope, JsonOptions);
-            }
-
-            if (File.Exists(_filePath))
-                File.Replace(tmp, _filePath, _filePath + ".bak");
-            else
-                File.Move(tmp, _filePath);
+            JsonSerializer.Serialize(stream, envelope, JsonOptions);
         }
+
+        if (File.Exists(_filePath))
+            File.Replace(tmp, _filePath, _filePath + ".bak");
+        else
+            File.Move(tmp, _filePath);
+    }
+
+    /// <summary>
+    /// Takes the cross-process mutex for this store file. Reentrant on the same thread, so
+    /// Upsert's lock → Load's lock nests fine. An abandoned mutex (a headless process killed
+    /// mid-write) is treated as acquired: the atomic temp-file swap means the store itself
+    /// is never half-written. A timeout proceeds without the lock rather than hanging the
+    /// UI — the worst case is last-writer-wins, never corruption.
+    /// </summary>
+    private FileLockScope AcquireFileLock()
+    {
+        var acquired = false;
+        try
+        {
+            acquired = _fileMutex.WaitOne(TimeSpan.FromSeconds(5));
+        }
+        catch (AbandonedMutexException)
+        {
+            acquired = true;
+        }
+        if (!acquired)
+            AppLog.Write(nameof(ProfileStore), "Timed out waiting for the store lock; proceeding unlocked.");
+        return new FileLockScope(acquired ? _fileMutex : null);
+    }
+
+    private readonly struct FileLockScope(Mutex? held) : IDisposable
+    {
+        public void Dispose() => held?.ReleaseMutex();
     }
 
     public VantageProfile? Find(string idOrName)
@@ -91,29 +191,26 @@ public sealed class ProfileStore
 
     public void Upsert(VantageProfile profile)
     {
-        lock (_gate)
-        {
-            var envelope = Load();
-            var idx = envelope.Profiles.FindIndex(p => p.Id == profile.Id);
-            profile.UpdatedAt = DateTimeOffset.Now;
-            if (idx >= 0)
-                envelope.Profiles[idx] = profile;
-            else
-                envelope.Profiles.Add(profile);
-            Save(envelope);
-        }
+        // Held across the read-modify-write so another process can't slip a save in between.
+        using var _ = AcquireFileLock();
+        var envelope = Load();
+        var idx = envelope.Profiles.FindIndex(p => p.Id == profile.Id);
+        profile.UpdatedAt = DateTimeOffset.Now;
+        if (idx >= 0)
+            envelope.Profiles[idx] = profile;
+        else
+            envelope.Profiles.Add(profile);
+        Save(envelope);
     }
 
     public bool Delete(Guid id)
     {
-        lock (_gate)
-        {
-            var envelope = Load();
-            var removed = envelope.Profiles.RemoveAll(p => p.Id == id) > 0;
-            if (removed)
-                Save(envelope);
-            return removed;
-        }
+        using var _ = AcquireFileLock();
+        var envelope = Load();
+        var removed = envelope.Profiles.RemoveAll(p => p.Id == id) > 0;
+        if (removed)
+            Save(envelope);
+        return removed;
     }
 
     /// <summary>Builds a profile from a live snapshot.</summary>

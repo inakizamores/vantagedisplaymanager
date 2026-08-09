@@ -159,6 +159,14 @@ Steam is. Launcher-aware shortcuts can come later as sugar on top.
 
 ## 3. Technology stack (decided)
 
+> **As-built deltas (1.0):** the shipped stack differs from this table where reality won:
+> .NET **8** LTS (not 10); **WPF-UI** (the listed fallback — iNKORE was passed over);
+> hand-written `[DllImport]`/`[LibraryImport]` interop (CsWin32 not adopted); manual
+> versioning in `Directory.Build.props` with a tag-match check in the release workflow
+> (not Nerdbank.GitVersioning); a minimal owned rolling file log, `AppLog` (no logging
+> framework); signing still pending (SignPath planned). Audio/ADLX/IGCL rows are future
+> work — see §6.
+
 | Concern | Choice | Rationale (details: ecosystem report §4) |
 |---|---|---|
 | Runtime | **.NET 10 LTS**, x64 (+ ARM64 later) | Current LTS; DisplayMagician already proves modern .NET works here |
@@ -255,13 +263,18 @@ CLI apply; auto-revert countdown; Velopack packaging.
 
 **M2 — Daily-driver polish (v1.0).** WPF Fluent UI: visual layout editor (physical-mm aware,
 LittleBigMouse model), profile gallery with rendered layout icons (Helios's good idea),
-settings, toasts; brightness/DDC-CI panel (crash sentinel, quirk DB, WMI internal panels,
-SDR-white-level slider under HDR); monitor input switching (VCP 0x60); audio device per
-profile; winget + signing.
+settings, toasts.
+*Re-scoped before release (the README roadmap is the authority on what ships when):
+brightness/DDC-CI, monitor input switching (VCP 0x60), audio device per profile, and
+winget + signing moved out of the 1.0 cut into the post-1.0 roadmap. What 1.0 gained
+instead: preset Start-menu shortcuts with per-preset icons, in-app updates via the Velopack
+feed, per-profile GPU output color depth, crash logging + tray failure surfacing, and live
+theme/accent tracking.*
 
 **M3 — Automation (v1.1).** Trigger/action rules engine (P9); process watch via
 WMI/ETW; time-of-day + sunrise/sunset; dock/topology-change triggers; revert-on-exit
-semantics; per-app "run with profile" shortcuts (.lnk generation).
+semantics; per-app "run with profile" shortcuts (.lnk generation). DDC/CI brightness and
+input switching, audio switching, winget + signing fold in here (see M2 re-scope).
 
 **M4 — Vendor depth (v1.2+).** NVIDIA Surround (Mosaic) with the battle-tested teardown
 recipe; AMD Eyefinity via ADLX (ADL fallback only if forced); Intel Combined Display; 10-bit /

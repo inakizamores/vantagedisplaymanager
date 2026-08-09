@@ -132,15 +132,24 @@ public partial class MainViewModel : ObservableObject
         _store = store;
         _engine = engine;
 
+        // A copy that can't self-update should say so up front, not after a dead button press.
+        if (!_updates.CanUpdate)
+            UpdateStatus = "This copy isn't managed by the installer — get new versions from the releases page; your profiles and settings carry over";
+
+        _settings = AppSettings.Load();
         _suppressSettingSideEffects = true;
         StartWithWindows = StartupManager.IsEnabled();
+        CheckUpdatesAtStartup = _settings.CheckForUpdatesAtStartup;
+        CloseToTray = _settings.CloseToTray;
         _suppressSettingSideEffects = false;
 
         _ = RefreshAsync();
 
         // Look for a new version quietly in the background. Nothing pops up — the Settings
-        // card just starts offering the update instead of a Check button.
-        _ = CheckForUpdatesAsync(silent: true);
+        // card just starts offering the update instead of a Check button. Pointless for a
+        // copy that couldn't install the result (and would clobber its explanatory text).
+        if (_settings.CheckForUpdatesAtStartup && _updates.CanUpdate)
+            _ = CheckForUpdatesAsync(silent: true);
     }
 
     // --- Updates ---
@@ -163,7 +172,33 @@ public partial class MainViewModel : ObservableObject
 
     public bool HasUpdate => AvailableUpdate is not null;
 
-    partial void OnAvailableUpdateChanged(AvailableUpdate? value) => OnPropertyChanged(nameof(HasUpdate));
+    /// <summary>False for the portable build and debugger runs — nothing for Velopack to swap.</summary>
+    public bool CanSelfUpdate => _updates.CanUpdate;
+
+    public bool ShowCheckButton => CanSelfUpdate && !HasUpdate;
+
+    partial void OnAvailableUpdateChanged(AvailableUpdate? value)
+    {
+        OnPropertyChanged(nameof(HasUpdate));
+        OnPropertyChanged(nameof(ShowCheckButton));
+    }
+
+    [RelayCommand]
+    private void OpenReleasesPage()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = UpdateService.ReleasesUrl,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            ShowStatus("Could not open the releases page", ex.Message, Wpf.Ui.Controls.InfoBarSeverity.Error);
+        }
+    }
 
     [RelayCommand]
     private async Task CheckForUpdatesAsync(bool silent)
@@ -218,7 +253,11 @@ public partial class MainViewModel : ObservableObject
 
     // --- Settings ---
 
+    private readonly AppSettings _settings;
+
     [ObservableProperty] private bool _startWithWindows;
+    [ObservableProperty] private bool _checkUpdatesAtStartup;
+    [ObservableProperty] private bool _closeToTray;
 
     partial void OnStartWithWindowsChanged(bool value)
     {
@@ -237,6 +276,52 @@ public partial class MainViewModel : ObservableObject
             _suppressSettingSideEffects = true;
             StartWithWindows = StartupManager.IsEnabled();
             _suppressSettingSideEffects = false;
+        }
+    }
+
+    partial void OnCheckUpdatesAtStartupChanged(bool value)
+    {
+        if (_suppressSettingSideEffects)
+            return;
+        _settings.CheckForUpdatesAtStartup = value;
+        SaveSettings();
+    }
+
+    partial void OnCloseToTrayChanged(bool value)
+    {
+        if (_suppressSettingSideEffects)
+            return;
+        _settings.CloseToTray = value;
+        SaveSettings();
+    }
+
+    private void SaveSettings()
+    {
+        try
+        {
+            _settings.Save();
+        }
+        catch (Exception ex)
+        {
+            ShowStatus("Could not save settings", ex.Message, Wpf.Ui.Controls.InfoBarSeverity.Error);
+        }
+    }
+
+    [RelayCommand]
+    private void OpenDataFolder()
+    {
+        try
+        {
+            VantageDataPaths.EnsureCreatedAndMigrated();
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = VantageDataPaths.Root,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception ex)
+        {
+            ShowStatus("Could not open the data folder", ex.Message, Wpf.Ui.Controls.InfoBarSeverity.Error);
         }
     }
 
@@ -265,6 +350,11 @@ public partial class MainViewModel : ObservableObject
             {
                 SyncDisplays(snapshot);
                 SyncProfiles(envelope, snapshot);
+
+                // The store repaired itself from a damaged file — the user should know
+                // recent changes may be gone.
+                if (_store.LastRecoveryMessage is { } recovery)
+                    ShowStatus("Profiles recovered", recovery, Wpf.Ui.Controls.InfoBarSeverity.Warning);
             });
         }
         catch (Exception ex)
@@ -315,8 +405,13 @@ public partial class MainViewModel : ObservableObject
             if (!seen.Contains(Profiles[i].Id))
                 Profiles.RemoveAt(i);
 
+        HasProfiles = Profiles.Count > 0;
+
         RefreshHotkeyRegistrations(envelope);
     }
+
+    /// <summary>Drives the first-run empty state under the profile list.</summary>
+    [ObservableProperty] private bool _hasProfiles = true;
 
     // --- Hotkeys ---
 
@@ -325,20 +420,56 @@ public partial class MainViewModel : ObservableObject
     public void AttachHotkeyService(HotkeyService hotkeys)
     {
         _hotkeys = hotkeys;
-        RefreshHotkeyRegistrations(_store.Load());
+        try
+        {
+            RefreshHotkeyRegistrations(_store.Load());
+        }
+        catch (Exception ex)
+        {
+            // Runs during OnStartup, before any window exists — a store problem here (e.g. a
+            // newer-schema file) must not take the whole app down with it.
+            AppLog.Error(nameof(MainViewModel), ex, "Initial hotkey registration failed");
+            ShowStatus("Profiles could not be loaded", ex.Message, Wpf.Ui.Controls.InfoBarSeverity.Error);
+        }
     }
+
+    private string? _lastHotkeyWarning;
 
     private void RefreshHotkeyRegistrations(ProfileFileEnvelope envelope)
     {
         if (_hotkeys is null)
             return;
-        var failures = _hotkeys.RegisterAll(envelope.Profiles
-            .Where(p => p.Hotkey is { Length: > 0 })
-            .Select(p => (p.Id, p.Hotkey!)));
-        if (failures.Count > 0)
-            ShowStatus("Some hotkeys are unavailable",
-                $"Already in use by another app: {string.Join(", ", failures)}",
-                Wpf.Ui.Controls.InfoBarSeverity.Warning);
+
+        var withHotkeys = envelope.Profiles.Where(p => p.Hotkey is { Length: > 0 }).ToList();
+
+        // Two Vantage profiles sharing a gesture is our own duplicate, not "another app" —
+        // report it as such (the second RegisterHotKey would fail with the same error either
+        // way, which sends the user hunting through other software for a conflict that's here).
+        var duplicateGroups = withHotkeys
+            .GroupBy(p => p.Hotkey!, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1)
+            .ToList();
+        var duplicates = duplicateGroups
+            .Select(g => $"{HotkeyService.FormatGesture(g.Key)} is assigned to both " +
+                         $"{string.Join(" and ", g.Select(p => $"'{p.Name}'"))} — only '{g.First().Name}' will respond")
+            .ToList();
+        var duplicateIds = duplicateGroups.SelectMany(g => g.Skip(1)).Select(p => p.Id).ToHashSet();
+
+        var failures = _hotkeys.RegisterAll(withHotkeys.Select(p => (p.Id, p.Hotkey!)));
+        var byId = envelope.Profiles.ToDictionary(p => p.Id, p => p.Name);
+        var external = failures
+            .Where(f => !duplicateIds.Contains(f.ProfileId))
+            .Select(f => $"{HotkeyService.FormatGesture(f.Gesture)} ('{byId.GetValueOrDefault(f.ProfileId, "?")}') is in use by another app")
+            .ToList();
+
+        var problems = duplicates.Concat(external).ToList();
+        var warning = problems.Count > 0 ? string.Join("  ·  ", problems) : null;
+
+        // An unresolvable conflict would otherwise re-open this warning after every refresh —
+        // every apply, save, delete and display change. Speak once per distinct problem.
+        if (warning is not null && warning != _lastHotkeyWarning)
+            ShowStatus("Some hotkeys are unavailable", warning, Wpf.Ui.Controls.InfoBarSeverity.Warning);
+        _lastHotkeyWarning = warning;
     }
 
     public async Task OnHotkeyPressedAsync(Guid profileId)
@@ -472,6 +603,32 @@ public partial class MainViewModel : ObservableObject
         if (dialog.ShowDialog() != true)
             return;
 
+        // Validate at capture time instead of letting the user find out at the next refresh.
+        if (dialog.Gesture is { } gesture)
+        {
+            var display = HotkeyService.FormatGesture(gesture);
+            var holder = Profiles.FirstOrDefault(p =>
+                p.Id != item.Id && string.Equals(p.Profile.Hotkey, gesture, StringComparison.OrdinalIgnoreCase));
+            if (holder is not null)
+            {
+                ShowStatus("Hotkey not saved",
+                    $"{display} already switches to '{holder.Name}'. Pick a different combination, or clear it there first.",
+                    Wpf.Ui.Controls.InfoBarSeverity.Warning);
+                return;
+            }
+
+            // Not ours anywhere, so a probe answers for the rest of the system. Skip it when
+            // the profile already owns this gesture (re-saving the same combo is fine).
+            if (!string.Equals(item.Profile.Hotkey, gesture, StringComparison.OrdinalIgnoreCase)
+                && _hotkeys is { } hotkeys && !hotkeys.IsGestureAvailable(gesture))
+            {
+                ShowStatus("Hotkey not saved",
+                    $"{display} is already in use by another app. Pick a different combination.",
+                    Wpf.Ui.Controls.InfoBarSeverity.Warning);
+                return;
+            }
+        }
+
         item.Profile.Hotkey = dialog.Gesture;
         _store.Upsert(item.Profile);
         await RefreshAsync();
@@ -581,13 +738,18 @@ public partial class MainViewModel : ObservableObject
             }
             else if (report.AutoReverted)
             {
+                AppLog.WriteBlock("Apply", $"'{item.Name}' auto-reverted: {report.FailureReason ?? "hard failure"}", report.Log);
                 ShowStatus("Change didn't verify — reverted automatically",
                     report.FailureReason ?? "The previous configuration was restored.",
                     Wpf.Ui.Controls.InfoBarSeverity.Warning);
             }
             else
             {
-                ShowStatus("Apply failed", report.FailureReason ?? "See log.", Wpf.Ui.Controls.InfoBarSeverity.Error);
+                // The engine's step log is the diagnosis; put it where a bug report can find it.
+                AppLog.WriteBlock("Apply", $"'{item.Name}' failed: {report.FailureReason ?? "unknown"}", report.Log);
+                ShowStatus("Apply failed",
+                    report.FailureReason ?? $"Details were written to the log in {VantageDataPaths.Root}.",
+                    Wpf.Ui.Controls.InfoBarSeverity.Error);
             }
         }
         catch (Exception ex)
@@ -649,10 +811,13 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task DeleteProfileAsync(ProfileItemViewModel item)
     {
+        var hasShortcuts = item.Profile.ShortcutPaths is { Count: > 0 };
         var box = new Wpf.Ui.Controls.MessageBox
         {
             Title = "Delete profile",
-            Content = $"Delete '{item.Name}'? This cannot be undone.",
+            Content = hasShortcuts
+                ? $"Delete '{item.Name}'? Its Start menu and desktop shortcuts go with it. This cannot be undone."
+                : $"Delete '{item.Name}'? This cannot be undone.",
             PrimaryButtonText = "Delete",
             CloseButtonText = "Cancel",
         };
@@ -723,11 +888,22 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Raised alongside every status shown in the InfoBar, so the app can mirror warnings
+    /// and errors to the tray when the window is hidden — which is this app's default state.
+    /// </summary>
+    public event Action<string, string, Wpf.Ui.Controls.InfoBarSeverity>? StatusReported;
+
+    /// <summary>Lets the app surface its own messages through the same InfoBar.</summary>
+    public void ReportStatus(string title, string message, Wpf.Ui.Controls.InfoBarSeverity severity) =>
+        ShowStatus(title, message, severity);
+
     private void ShowStatus(string title, string message, Wpf.Ui.Controls.InfoBarSeverity severity)
     {
         StatusTitle = title;
         StatusMessage = message;
         StatusSeverity = severity;
         StatusOpen = true;
+        StatusReported?.Invoke(title, message, severity);
     }
 }

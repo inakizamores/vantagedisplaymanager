@@ -73,17 +73,18 @@ internal static class Program
             Vantage Display Manager CLI
 
             usage:
-              vantage list [--json]              Show connected displays and their state
-              vantage profiles [--json]          Show saved profiles and whether each is active
-              vantage capture <name>             Save the current configuration as a profile
-              vantage apply <name-or-id>         Apply a saved profile (verified)
-              vantage active [--json]            Show which profile matches the current state
-              vantage delete <name-or-id>        Delete a profile
-              vantage hdr <on|off> [display#]    Toggle HDR (all HDR-capable displays, or one)
-              vantage modes [display#]           List supported resolutions/refresh rates
-              vantage variant <name> --display <n> [--res WxH] [--hz N] [--hdr on|off]
-                                                 Create a profile from the current setup with
-                                                 a different mode/HDR on one display
+              vantagectl list [--json]              Show connected displays and their state
+              vantagectl profiles [--json]          Show saved profiles and whether each is active
+              vantagectl capture <name>             Save the current configuration as a profile
+              vantagectl apply <name-or-id>         Apply a saved profile (verified)
+              vantagectl active [--json]            Show which profile matches the current state
+              vantagectl delete <name-or-id>        Delete a profile
+              vantagectl hdr <on|off> [display#]    Toggle HDR (all HDR-capable displays, or one)
+              vantagectl modes [display#]           List supported resolutions/refresh rates
+              vantagectl variant <name> --display <n> [--res WxH] [--hz N] [--hdr on|off]
+                                                    Create a profile from the current setup with
+                                                    a different mode/HDR on one display
+              vantagectl snapshot                   Full display-state dump (diagnostics/fixtures)
             """);
         return 1;
     }
@@ -138,7 +139,7 @@ internal static class Program
 
         if (envelope.Profiles.Count == 0)
         {
-            Console.WriteLine("No profiles saved. Use: vantage capture <name>");
+            Console.WriteLine("No profiles saved. Use: vantagectl capture <name>");
             return 0;
         }
 
@@ -155,7 +156,7 @@ internal static class Program
     {
         if (args.Length == 0)
         {
-            Console.Error.WriteLine("usage: vantage capture <name>");
+            Console.Error.WriteLine("usage: vantagectl capture <name>");
             return 1;
         }
 
@@ -177,7 +178,7 @@ internal static class Program
     {
         if (args.Length == 0)
         {
-            Console.Error.WriteLine("usage: vantage apply <name-or-id>");
+            Console.Error.WriteLine("usage: vantagectl apply <name-or-id>");
             return 1;
         }
 
@@ -230,7 +231,7 @@ internal static class Program
     {
         if (args.Length == 0)
         {
-            Console.Error.WriteLine("usage: vantage delete <name-or-id>");
+            Console.Error.WriteLine("usage: vantagectl delete <name-or-id>");
             return 1;
         }
         var profile = store.Find(string.Join(' ', args));
@@ -304,14 +305,14 @@ internal static class Program
 
         if (name is null || displayIndex is null || (width is null && height is null && hz is null && hdr is null))
         {
-            Console.Error.WriteLine("usage: vantage variant <name> --display <n> [--res WxH] [--hz N] [--hdr on|off]");
+            Console.Error.WriteLine("usage: vantagectl variant <name> --display <n> [--res WxH] [--hz N] [--hdr on|off]");
             return 1;
         }
 
         var snapshot = displayService.Capture();
         if (displayIndex < 0 || displayIndex >= snapshot.Displays.Count)
         {
-            Console.Error.WriteLine($"Display #{displayIndex} does not exist (see: vantage list).");
+            Console.Error.WriteLine($"Display #{displayIndex} does not exist (see: vantagectl list).");
             return 2;
         }
 
@@ -346,7 +347,7 @@ internal static class Program
     {
         if (args.Length == 0 || args[0] is not ("on" or "off"))
         {
-            Console.Error.WriteLine("usage: vantage hdr <on|off> [display#]");
+            Console.Error.WriteLine("usage: vantagectl hdr <on|off> [display#]");
             return 1;
         }
         var enable = args[0] == "on";

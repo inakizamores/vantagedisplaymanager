@@ -38,10 +38,15 @@ public partial class UpdateWindow : Window
     private static string Megabytes(long bytes) =>
         bytes <= 0 ? "a few MB" : $"{bytes / 1024.0 / 1024.0:0.#} MB";
 
-    private void OnLater(object sender, RoutedEventArgs e)
+    private void OnLater(object sender, RoutedEventArgs e) => Close();
+
+    protected override void OnClosed(EventArgs e)
     {
+        // Covers the title-bar X as well as "Later" — a download with no window to report
+        // to shouldn't keep running.
         _cancellation.Cancel();
-        Close();
+        _cancellation.Dispose();
+        base.OnClosed(e);
     }
 
     private async void OnUpdate(object sender, RoutedEventArgs e)
@@ -49,29 +54,47 @@ public partial class UpdateWindow : Window
         if (_busy)
             return;
 
-        _busy = true;
-        UpdateButton.IsEnabled = false;
-        UpdateButton.Content = "Downloading…";
-        DownloadProgress.Visibility = Visibility.Visible;
-        StatusText.Visibility = Visibility.Collapsed;
-
-        var progress = new Progress<int>(percent => DownloadProgress.Value = percent);
-        var error = await _updates.DownloadAsync(progress, _cancellation.Token);
-
-        if (error is not null)
+        try
         {
-            DownloadProgress.Visibility = Visibility.Collapsed;
-            StatusText.Text = $"The download failed: {error}";
-            StatusText.Visibility = Visibility.Visible;
-            UpdateButton.Content = "Try again";
-            UpdateButton.IsEnabled = true;
-            _busy = false;
-            return;
+            _busy = true;
+            UpdateButton.IsEnabled = false;
+            UpdateButton.Content = "Downloading…";
+            DownloadProgress.Visibility = Visibility.Visible;
+            StatusText.Visibility = Visibility.Collapsed;
+
+            var progress = new Progress<int>(percent => DownloadProgress.Value = percent);
+            var error = await _updates.DownloadAsync(progress, _cancellation.Token);
+
+            if (error is not null)
+            {
+                ShowFailure($"The download failed: {error}");
+                return;
+            }
+
+            UpdateButton.Content = "Restarting…";
+
+            // Replaces this process. Nothing after this line runs — unless it throws, which
+            // is why the catch below exists: a crash mid-update is the worst possible crash.
+            _updates.ApplyAndRestart();
         }
+        catch (Exception ex)
+        {
+            Vantage.Core.Services.AppLog.Error("Update", ex, "Update flow threw");
+            ShowFailure($"The update failed: {ex.Message}");
+        }
+    }
 
-        UpdateButton.Content = "Restarting…";
-
-        // Replaces this process. Nothing after this line runs.
-        _updates.ApplyAndRestart();
+    private void ShowFailure(string message)
+    {
+        DownloadProgress.Visibility = Visibility.Collapsed;
+        StatusText.Text = message;
+        // Failure text in the same grey as the subtitle reads as body copy; use the
+        // system critical color so it reads as what it is.
+        if (TryFindResource("SystemFillColorCriticalBrush") is System.Windows.Media.Brush critical)
+            StatusText.Foreground = critical;
+        StatusText.Visibility = Visibility.Visible;
+        UpdateButton.Content = "Try again";
+        UpdateButton.IsEnabled = true;
+        _busy = false;
     }
 }

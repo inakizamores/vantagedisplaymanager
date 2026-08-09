@@ -8,6 +8,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build (Release, win-x64)
@@ -26,8 +30,4 @@ jobs:
         run: dotnet build Vantage.sln -c Release --no-restore -warnaserror
 
       - name: Test
-        shell: pwsh
-        run: |
-          $tests = Get-ChildItem tests -Recurse -Filter *.csproj -ErrorAction SilentlyContinue
-          if ($tests) { dotnet test Vantage.sln -c Release --no-build --verbosity normal }
-          else { Write-Host 'No test projects yet - skipping.' }
+        run: dotnet test Vantage.sln -c Release --no-build --verbosity normal

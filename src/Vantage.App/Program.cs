@@ -25,12 +25,45 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        // Last-resort diagnostics for every path, headless ones included. Without these, a
+        // crash in the tray-resident app dies silently and a bug report has nothing to say.
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+            AppLog.Error("Unhandled", e.ExceptionObject as Exception ?? new Exception(e.ExceptionObject?.ToString()),
+                "AppDomain.UnhandledException (crashing)");
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            AppLog.Error("Unhandled", e.Exception, "Unobserved task exception");
+            e.SetObserved();
+        };
+
         // Velopack's install/update/uninstall hooks must always reach VelopackApp.Run(),
         // so they skip every shortcut path below.
         if (args.Any(a => a.StartsWith("--veloapp", StringComparison.OrdinalIgnoreCase)))
             return RunApp(null);
 
         var command = LaunchCommand.Parse(args);
+
+        // --help would otherwise fall through and silently launch the GUI, which is the one
+        // thing someone typing --help has said they don't want.
+        if (command.Help)
+        {
+            AttachConsole(unchecked((uint)-1));
+            Console.WriteLine("""
+
+                Vantage Display Manager
+
+                usage:
+                  Vantage.exe                       Open the app
+                  Vantage.exe --apply <id or name>  Switch to a profile and exit, no window
+                  Vantage.exe --tray                Start in the tray only (no window)
+                  Vantage.exe --update              Check GitHub, download, install, relaunch
+                                                    (exit codes: 0 updated, 1 current,
+                                                     2 not an installed copy, 3 failed)
+
+                Everything else is scriptable through vantagectl (see: vantagectl).
+                """);
+            return 0;
+        }
 
         // Before the single-instance mutex: updating is Velopack's business whether or not a
         // copy is already running, and it knows how to deal with the running one. The hooks
@@ -103,11 +136,13 @@ internal static class Program
             if (report.Succeeded)
                 return 0;
 
+            AppLog.WriteBlock("Apply", $"Headless apply of '{profile.Name}' failed: {report.FailureReason ?? "did not verify"}", report.Log);
             Warn($"'{profile.Name}' could not be applied.\n\n{report.FailureReason ?? "The change did not verify."}");
             return 3;
         }
         catch (Exception ex)
         {
+            AppLog.Error("Apply", ex, $"Headless apply of '{target}' threw");
             Warn(ex.Message);
             return 3;
         }

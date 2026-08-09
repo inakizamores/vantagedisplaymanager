@@ -3,6 +3,69 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [1.0.0] — 2026-08-09
+
+The first stable release. Everything the betas built — the verified apply engine with
+automatic rollback, presets, hotkeys, the layout editor, Start menu shortcuts, per-profile
+GPU color depth, in-app updates — plus the hardening pass that makes it trustworthy enough
+to drop the `-beta`: nothing fails silently anymore, nothing crashes without a trace, and a
+damaged profile file can no longer take the app down with it.
+
+### Added
+- **A diagnostic log.** `vantage.log` in `Documents\Vantage Display Manager` (rolled at
+  512 KB, bounded at ~1 MB), fed by unhandled-exception handlers on every path — the WPF
+  dispatcher, background threads, headless launches. A failed apply writes the engine's full
+  step log there; "Apply failed — see log" now points at a log that exists.
+- **Failures reach you in the tray.** The app's error surface used to be an InfoBar inside a
+  window that is hidden for most of this app's life. Warnings and errors now fall back to a
+  tray notification when the window isn't visible — a failed hotkey apply, tray-menu apply,
+  or out-of-date shortcut no longer vanishes without a word.
+- **First-run guidance.** A brand-new install shows what to do (arrange → name → save)
+  instead of an unexplained gap between the save row and Settings.
+- **Real settings.** Close-to-tray vs. exit is now a choice; the startup update check has an
+  off switch; and an "Open folder" button jumps to your data. Stored in `settings.json`
+  beside the profiles, atomically, versioned.
+- **Live theme and accent tracking.** Switching Windows between light and dark, or changing
+  the accent color, restyles Vantage on the spot — window, title bar, and the profile
+  thumbnails that paint the primary display in your accent. Previously picked up only at
+  launch, which a tray-resident app might not see again for weeks.
+- **Hotkey conflicts are caught when you set them.** Assigning a combo another profile
+  already owns, or one another app holds system-wide, is refused on the spot with the actual
+  holder named. Conflicts found later name the profile, not just the gesture, and warn once
+  instead of after every refresh.
+- `Vantage.exe --help` (also `-h`, `/?`) prints the launch switches instead of silently
+  opening the GUI.
+- `vantagectl` usage now lists `snapshot`, and every hint it prints uses its real name —
+  it used to suggest `vantage …` commands that don't exist.
+
+### Fixed
+- **A damaged `profiles.json` no longer prevents Vantage from starting.** It is quarantined
+  under a timestamped name, the automatic `.bak` is restored if readable, and the app tells
+  you what happened. Previously: an unhandled parse error before the window existed.
+- **Concurrent profile writes can no longer lose a profile.** The store file is guarded by a
+  cross-process lock — the window, the background shortcut reconciler, and headless
+  `--apply` processes all serialize their read-modify-writes.
+- The update dialog survives a mid-download failure without risking the process, cancels the
+  download when closed from the title bar, and shows failures in the system critical color
+  instead of subtitle grey.
+- Portable and unmanaged copies get a working "Releases page" button instead of a check
+  button that can only report why it can't work.
+- The IPC listener thread can no longer take the whole app (tray icon, hotkeys and all) down
+  with it on an unexpected fault.
+- Deleting a profile now says its Start menu and desktop shortcuts go with it.
+- Main window title now reads "Vantage Display Manager", matching everything else.
+
+### Changed
+- **Installed 1.0 copies follow the stable channel.** Beta prereleases are no longer offered
+  to a stable install; the 0.x betas still see stable releases and update onto 1.0.0.
+- Release engineering hardened for 1.0: the release workflow now runs the test suite before
+  packing, refuses a tag whose version disagrees with the repo or whose changelog section is
+  missing, pins the Velopack packer to the version the shipped updater understands, and
+  stamps the tag's version into the binaries' file metadata (previously frozen at the last
+  props value — Explorer would have called 1.0.0 "0.6.3").
+- Test suite grew from 20 to 37: profile-store corruption recovery, concurrent-writer
+  safety, legacy data migration, and the launch-switch grammar every shortcut depends on.
+
 ## [0.6.3-beta] — 2026-08-09
 
 ### Fixed

@@ -5,7 +5,7 @@ namespace Vantage.App.Services;
 /// the command line on a cold start, and serialised over <see cref="InstanceChannel"/> when
 /// an instance is already running and should do the work instead.
 /// </summary>
-public sealed record LaunchCommand(string? ApplyTarget, bool TrayOnly, bool Update = false)
+public sealed record LaunchCommand(string? ApplyTarget, bool TrayOnly, bool Update = false, bool Help = false)
 {
     /// <summary>Switch a preset shortcut carries: <c>--apply &lt;profile id or name&gt;</c>.</summary>
     public const string ApplySwitch = "--apply";
@@ -19,6 +19,7 @@ public sealed record LaunchCommand(string? ApplyTarget, bool TrayOnly, bool Upda
         string? applyTarget = null;
         var trayOnly = false;
         var update = args.Any(a => string.Equals(a, UpdateSwitch, StringComparison.OrdinalIgnoreCase));
+        var help = args.Any(a => a is "--help" or "-h" or "/?" or "-?");
 
         for (var i = 0; i < args.Count; i++)
         {
@@ -42,7 +43,7 @@ public sealed record LaunchCommand(string? ApplyTarget, bool TrayOnly, bool Upda
             }
         }
 
-        return new LaunchCommand(applyTarget is { Length: > 0 } ? applyTarget : null, trayOnly, update);
+        return new LaunchCommand(applyTarget is { Length: > 0 } ? applyTarget : null, trayOnly, update, help);
     }
 
     /// <summary>Line protocol for the IPC channel — one verb, optional argument.</summary>
