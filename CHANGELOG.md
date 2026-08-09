@@ -3,6 +3,16 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [0.6.1-beta] — 2026-08-09
+
+### Added
+- **`Vantage.exe --update`** — the whole update flow without the window: checks GitHub, reports
+  the version and release-note size it found, downloads with progress, installs and relaunches.
+  Scriptable, and the reason the update path can be verified end to end rather than clicked
+  through by hand. Exit codes: 0 updated, 1 already current, 2 not an installed copy, 3 failed.
+  It runs before the single-instance check, since updating is Velopack's business whether or not
+  a copy is already running.
+
 ## [0.6.0-beta] — 2026-08-09
 
 ### Added

@@ -31,6 +31,12 @@ internal static class Program
             return RunApp(null);
 
         var command = LaunchCommand.Parse(args);
+
+        // Before the single-instance mutex: updating is Velopack's business whether or not a
+        // copy is already running, and it knows how to deal with the running one.
+        if (command.Update)
+            return UpdateHeadless();
+
         var mutex = new Mutex(true, @"Local\VantageDisplayManager", out var owned);
 
         if (!owned)
@@ -101,6 +107,68 @@ internal static class Program
             return 3;
         }
     }
+
+    /// <summary>
+    /// <c>--update</c>: the whole update flow without the window. Prints what it finds and what
+    /// it does, so it can be scripted and so the update path can be verified without clicking
+    /// through the UI. Exit codes: 0 updated (process is replaced), 1 already current,
+    /// 2 not an installed copy, 3 failed.
+    /// </summary>
+    private static int UpdateHeadless()
+    {
+        // A console app writing to a console it may not have: attach to the parent's if we were
+        // launched from one, so `Vantage.exe --update` from a terminal actually prints.
+        AttachConsole(unchecked((uint)-1));
+
+        var updates = new UpdateService();
+        Console.WriteLine($"Vantage {UpdateService.CurrentVersion}");
+
+        if (!updates.CanUpdate)
+        {
+            Console.WriteLine("This copy was not installed by the setup program, so it cannot update itself.");
+            return 2;
+        }
+
+        var (update, error) = updates.CheckAsync().GetAwaiter().GetResult();
+        if (error is not null)
+        {
+            Console.WriteLine($"Could not check for updates: {error}");
+            return 3;
+        }
+
+        if (update is null)
+        {
+            Console.WriteLine("Already on the latest version.");
+            return 1;
+        }
+
+        Console.WriteLine($"Found {update.Version} ({update.DownloadSizeBytes / 1024 / 1024} MB), release notes: " +
+                          $"{(update.ReleaseNotes is null ? "none" : $"{update.ReleaseNotes.Length} characters")}");
+        Console.WriteLine("Downloading…");
+
+        var lastPercent = -1;
+        var progress = new Progress<int>(percent =>
+        {
+            if (percent / 10 == lastPercent / 10)
+                return;
+            lastPercent = percent;
+            Console.WriteLine($"  {percent}%");
+        });
+
+        if (updates.DownloadAsync(progress).GetAwaiter().GetResult() is { } downloadError)
+        {
+            Console.WriteLine($"Download failed: {downloadError}");
+            return 3;
+        }
+
+        Console.WriteLine($"Installing {update.Version} and restarting…");
+        updates.ApplyAndRestart();
+        return 0;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool AttachConsole(uint processId);
 
     /// <summary>
     /// The headless path is silent when it works. When it doesn't there is no window and no
