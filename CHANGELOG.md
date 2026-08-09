@@ -3,6 +3,94 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [0.6.0-beta] — 2026-08-09
+
+### Added
+- **In-app updates.** Vantage now checks its own GitHub releases, shows what changed, and
+  installs the new version itself. The check runs quietly in the background at launch — nothing
+  pops up; the Settings card simply starts offering an Update button instead of a Check one.
+  Choosing it opens the release notes for that version, then downloads with a progress bar and
+  restarts. Profiles, settings and shortcut icons live in `Documents\Vantage Display Manager`,
+  outside the install folder, so an update never touches them, and preset shortcuts are
+  re-pointed by the after-update hook below. An update is refused outright while a display
+  change is in flight rather than swapping the app out mid-switch.
+- Release notes are embedded in the update package itself by the release workflow, extracted
+  from this changelog, so the app can show what a version contains before installing it without
+  a round-trip to the GitHub API — and the release page and the app can never disagree.
+- **Presets as Start menu shortcuts.** The pin button on any profile card turns that preset into
+  a Windows shortcut, in the Start menu, on the desktop, or both. Type the preset's name into
+  Start, press Enter, displays switch — no window opens. Shortcuts land in the All apps root
+  alongside your other apps; grouping them under a "Vantage Presets" folder is a checkbox, off
+  by default, because a folder is a collapsed heading you have to expand every single time.
+  Everything is per-user, so none of it needs administrator rights.
+- **Per-preset icons.** Each shortcut gets its own multi-resolution `.ico` rendered from the
+  preset's monitor-layout thumbnail — the same picture the profile card shows — written at
+  16/20/24/32/48/64/128/256 px so the Start menu, taskbar and Explorer each get a crisp size.
+  The HDR badge is dropped below 128 px, where it would only ever be a smudge. Any image,
+  `.ico` or program can be used instead. Icons live in
+  `Documents\Vantage Display Manager\Shortcut Icons` so they survive updates and reinstalls,
+  and are written under a fresh name each time because Explorer caches icons by path.
+- **`--apply <profile id or name>`** on `Vantage.exe`, the switch shortcuts carry. If Vantage is
+  already in the tray the launched process forwards the request over a named pipe and exits,
+  and the warm instance — which already has the display service and profile store loaded — does
+  the switch. If nothing is running, the profile is applied with no theme, no tray icon, no
+  view model and no window built at all. Failures on the cold path surface as a message box,
+  since there is no window to put an info bar in.
+- **The app now owns its entry point** (`Program.Main`, replacing the one WPF generates) so both
+  of those paths are decided *before any WPF type is loaded*. Constructing the WPF `Application`
+  and merging App.xaml's theme dictionaries measures ~90 ms, which a process that will never
+  draw anything should not pay. A shortcut handover is ~36 ms of total process lifetime (the
+  pipe round trip inside that is ~3 ms), and a cold start reaches profile resolution in ~166 ms.
+  `VelopackApp.Run()` moved to the top of the real startup path, which is where Velopack has
+  been asking for it.
+- **Preset shortcuts survive updates, moves and reinstalls.** A `.lnk` stores an absolute
+  path, so anything that relocates the executable would leave every preset shortcut pointing at
+  a file that no longer exists. Velopack solves this for its own Start menu entry by rewriting
+  it on each update; preset shortcuts now get the same treatment, from three places:
+  Velopack's after-install and after-update hooks (fixed at the moment the thing that would
+  break them happens), and every normal launch as a safety net for moves Velopack knows nothing
+  about — a portable copy unzipped somewhere new, for instance. The launch check is off the
+  startup path and costs one string compare per shortcut when nothing has moved.
+- **Uninstalling removes preset shortcuts** via Velopack's before-uninstall hook, instead of
+  leaving dead entries behind in the Start menu.
+- Deleting a profile removes its shortcuts and generated icon too.
+- Tests for the engine's wait loop: returns as soon as the hardware agrees, honours the full
+  budget when it doesn't, survives a transient `CcdException` while an output re-trains, and
+  cancels cleanly. `Vantage.Core` now exposes internals to the test assembly.
+
+### Changed
+- **The apply engine no longer sleeps out its worst case.** Three steps ended in a fixed
+  `Task.Delay` before checking whether the change had landed — DPI 150 ms, HDR 300 ms, colour
+  depth 600 ms per attempt — and the settle wait polled only every 250 ms. So an HDR preset that
+  also pins colour depth paid ~900 ms of unconditional waiting plus up to 250 ms of settle
+  overshoot, no matter how fast the hardware actually was. All four now poll every 40 ms against
+  the same budgets, and the DPI step (whose setter is synchronous) checks before waiting at all.
+  Slow hardware still gets every millisecond it had; fast hardware stops paying for it. This was
+  the last of the "sleep engineering" the research faulted the incumbents for (BLUEPRINT P2/P7).
+- Measured for context: `DisplayService.Capture()` is 2.7 ms median on a two-display setup, and
+  an apply calls it four times — so the engine's own bookkeeping is ~18 ms. Loading the profile
+  store is 0.2 ms and matching is under 0.1 ms. Essentially all remaining latency is the display
+  pipeline itself.
+- `vantagectl apply` now stamps every step with elapsed milliseconds and reports a total, so
+  where the time goes is visible rather than inferred.
+
+### Fixed
+- Editing a shortcut deleted and recreated the `.lnk` even when the path was unchanged, which
+  drops any Start pin made against it. Shortcuts whose path survives an edit are now overwritten
+  in place; only genuinely stale paths (renamed, or moved between the Start menu and the
+  desktop) are deleted. Repairs preserve the icon and arguments too.
+- A shortcut deleted from Explorer is now forgotten rather than kept in the profile record — and
+  is never silently recreated, since deleting it was a deliberate act.
+- A second launch of Vantage tried to release a mutex it never owned, throwing on exit. Never
+  noticeable before because second launches did nothing; now every shortcut click is one.
+  Replaces the `TODO(M1)` placeholder with the real named-pipe channel: a plain second launch
+  brings the running window to the front instead of vanishing silently.
+
+### Notes
+- Windows does not let an application pin itself to Start. The "Pin to Start" verb is listed on
+  a shortcut but invoking it programmatically is a no-op — verified against the pinned-items
+  database, which does not change. Pinning a preset stays a one-time right-click.
+
 ## [0.4.5-beta] — 2026-08-04
 
 ### Fixed

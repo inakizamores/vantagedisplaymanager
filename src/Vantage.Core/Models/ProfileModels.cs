@@ -28,6 +28,10 @@ public sealed record VantageProfile
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.Now;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.Now;
     public string? Hotkey { get; set; }
+    /// <summary>Icon used by this profile's shortcuts — null means the auto-rendered layout thumbnail.</summary>
+    public string? IconPath { get; set; }
+    /// <summary>.lnk files created for this profile, so they can be refreshed or removed along with it.</summary>
+    public List<string>? ShortcutPaths { get; set; }
     public required List<ProfileDisplay> Displays { get; init; }
     public required ReplayPayload Replay { get; init; }
 }

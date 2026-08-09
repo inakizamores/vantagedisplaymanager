@@ -14,6 +14,12 @@ public static class VantageDataPaths
     public static string ProfilesFile => Path.Combine(Root, "profiles.json");
     public static string SettingsFile => Path.Combine(Root, "settings.json");
 
+    /// <summary>
+    /// Icons generated for profile shortcuts. Lives beside the profiles rather than in
+    /// the install folder so a .lnk keeps its icon across updates and reinstalls.
+    /// </summary>
+    public static string ShortcutIconsDir => Path.Combine(Root, "Shortcut Icons");
+
     /// <summary>Pre-0.1.3 location (%LOCALAPPDATA%\Vantage) — read-only migration source.</summary>
     private static string LegacyRoot => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

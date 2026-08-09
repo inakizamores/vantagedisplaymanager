@@ -47,7 +47,14 @@ public sealed record ApplyReport
 public sealed class ApplyEngine(DisplayService displayService)
 {
     private static readonly TimeSpan SettleTimeout = TimeSpan.FromSeconds(10);
-    private static readonly TimeSpan SettlePollInterval = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>
+    /// How often the engine re-checks a change it is waiting on. A full <c>Capture()</c> costs
+    /// about 3 ms on a two-display setup, so checking every 40 ms is a ~7% duty cycle — cheap
+    /// enough that the granularity, rather than the polling, is what bounds the wait.
+    /// </summary>
+    private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(40);
+
     private const int SetterRetries = 3;
 
     /// <summary>Diff fields that never justify an automatic rollback.</summary>
@@ -361,9 +368,52 @@ public sealed class ApplyEngine(DisplayService displayService)
             {
                 // Transient while modes switch — keep polling until deadline.
             }
-            await Task.Delay(SettlePollInterval, ct).ConfigureAwait(false);
+            await Task.Delay(PollInterval, ct).ConfigureAwait(false);
         }
         return false;
+    }
+
+    /// <summary>
+    /// Waits for <paramref name="isDone"/> to become true, re-checking every
+    /// <see cref="PollInterval"/> until <paramref name="budget"/> runs out.
+    ///
+    /// This is the difference between "sleep the worst case, then look once" and asking the
+    /// hardware. A driver that flips colour depth in 60 ms used to cost a flat 600 ms because
+    /// that was the pessimistic figure baked into a <c>Task.Delay</c> — the exact "sleep
+    /// engineering" the research called out in the incumbents (BLUEPRINT P2/P7). The budget is
+    /// unchanged, so a slow display still gets every millisecond it had before.
+    /// </summary>
+    /// <param name="checkFirst">
+    /// True for setters that take effect synchronously (DPI scaling), so they cost nothing at
+    /// all. False for the ones that drive a modeset (HDR, colour depth), where querying the
+    /// instant the setter returns would only read back the old value — those wait one interval
+    /// before looking, which is still far short of the settle window they used to sleep out.
+    /// </param>
+    internal static async Task<bool> PollUntilAsync(
+        Func<bool> isDone, TimeSpan budget, CancellationToken ct, bool checkFirst = false)
+    {
+        var deadline = DateTimeOffset.UtcNow + budget;
+        var check = checkFirst;
+
+        while (true)
+        {
+            if (!check)
+                await Task.Delay(PollInterval, ct).ConfigureAwait(false);
+            check = false;
+
+            try
+            {
+                if (isDone())
+                    return true;
+            }
+            catch (CcdException)
+            {
+                // Transient while the output re-trains — keep polling until the deadline.
+            }
+
+            if (DateTimeOffset.UtcNow >= deadline)
+                return false;
+        }
     }
 
     private static async Task ApplyDpiAsync(
@@ -389,13 +439,20 @@ public sealed class ApplyEngine(DisplayService displayService)
         {
             ct.ThrowIfCancellationRequested();
             CcdApi.SetSourceDpiScale(luid, live.Address.SourceId, targetIdx - recIdx);
-            var check = CcdApi.GetSourceDpiScale(luid, live.Address.SourceId);
-            if (check.Succeeded && check.Value.CurScaleRel == targetIdx - recIdx)
+
+            var applied = await PollUntilAsync(
+                () =>
+                {
+                    var check = CcdApi.GetSourceDpiScale(luid, live.Address.SourceId);
+                    return check.Succeeded && check.Value.CurScaleRel == targetIdx - recIdx;
+                },
+                TimeSpan.FromMilliseconds(150 * attempt), ct, checkFirst: true).ConfigureAwait(false);
+
+            if (applied)
             {
                 report(ApplyStepKind.ApplyDpi, $"{live.Identity.FriendlyName}: scale set to {targetPercent}%");
                 return;
             }
-            await Task.Delay(150 * attempt, ct).ConfigureAwait(false);
         }
         report(ApplyStepKind.ApplyDpi, $"{live.Identity.FriendlyName}: could not verify scale change to {targetPercent}%");
     }
@@ -420,9 +477,11 @@ public sealed class ApplyEngine(DisplayService displayService)
             if (err != 0)
                 report(ApplyStepKind.ApplyHdr, $"{live.Identity.FriendlyName}: HDR setter returned {err} (attempt {attempt})");
 
-            // Setters lie — verify by re-query, with a short settle delay (HDRTray pattern).
-            await Task.Delay(300 * attempt, ct).ConfigureAwait(false);
-            if (VerifyHdr(luid, live.Address.TargetId, enable))
+            // Setters lie — verify by re-query (HDRTray pattern), polling rather than sleeping
+            // out the full settle window every time.
+            if (await PollUntilAsync(
+                    () => VerifyHdr(luid, live.Address.TargetId, enable),
+                    TimeSpan.FromMilliseconds(300 * attempt), ct).ConfigureAwait(false))
             {
                 report(ApplyStepKind.ApplyHdr, $"{live.Identity.FriendlyName}: HDR {(enable ? "enabled" : "disabled")}");
                 return;
@@ -455,9 +514,10 @@ public sealed class ApplyEngine(DisplayService displayService)
             if (!Vantage.Interop.Nvidia.NvApi.SetOutputBpc(displayId, bpc))
                 report(ApplyStepKind.ApplyColorDepth, $"{live.Identity.FriendlyName}: color depth setter failed (attempt {attempt})");
 
-            // bpc changes trigger a brief modeset — verify by re-query after it settles.
-            await Task.Delay(600 * attempt, ct).ConfigureAwait(false);
-            if (Vantage.Interop.Nvidia.NvApi.GetOutputBpc(displayId) == bpc)
+            // bpc changes trigger a brief modeset — verify by re-query as soon as it lands.
+            if (await PollUntilAsync(
+                    () => Vantage.Interop.Nvidia.NvApi.GetOutputBpc(displayId) == bpc,
+                    TimeSpan.FromMilliseconds(600 * attempt), ct).ConfigureAwait(false))
             {
                 report(ApplyStepKind.ApplyColorDepth, $"{live.Identity.FriendlyName}: output color depth set to {bpc} bpc");
                 return;

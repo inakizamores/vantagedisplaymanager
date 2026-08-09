@@ -1,5 +1,6 @@
 using System.Windows;
 using H.NotifyIcon;
+using Vantage.App.Services;
 using Vantage.App.ViewModels;
 using Vantage.Core.Services;
 
@@ -7,25 +8,23 @@ namespace Vantage.App;
 
 public partial class App : Application
 {
-    private Mutex? _singleInstanceMutex;
+    private readonly Mutex? _singleInstanceMutex;
     private TaskbarIcon? _trayIcon;
     private Vantage.App.Services.HotkeyService? _hotkeys;
 
     public MainViewModel ViewModel { get; private set; } = null!;
     public MainWindow? MainAppWindow { get; private set; }
 
+    /// <summary>
+    /// Launch decisions — single instance, and the preset-shortcut fast paths — are made in
+    /// <see cref="Program"/> before WPF is loaded. By the time this runs we are the real,
+    /// windowed instance; the mutex is handed over so it lives exactly as long as we do.
+    /// </summary>
+    public App(Mutex? singleInstanceMutex) => _singleInstanceMutex = singleInstanceMutex;
+
     protected override void OnStartup(StartupEventArgs e)
     {
-        // Velopack install/update/uninstall hooks — must run first (no-op outside an installed context).
-        Velopack.VelopackApp.Build().Run();
-
-        _singleInstanceMutex = new Mutex(true, @"Local\VantageDisplayManager", out var createdNew);
-        if (!createdNew)
-        {
-            // TODO(M1): forward args over a named pipe and foreground the running instance.
-            Shutdown();
-            return;
-        }
+        var command = LaunchCommand.Parse(e.Args);
 
         base.OnStartup(e);
 
@@ -36,6 +35,12 @@ public partial class App : Application
 
         // If "start with Windows" is on, keep the registered exe path current.
         Vantage.App.Services.StartupManager.ReconcileOnLaunch();
+
+        // Same idea for preset shortcuts, off the startup path since it touches COM and the
+        // profile store. Velopack's update hook normally gets there first; this covers the
+        // moves it knows nothing about, like a portable copy unzipped somewhere new.
+        var shortcutStore = new ProfileStore();
+        Task.Run(() => ShortcutReconciler.Reconcile(shortcutStore));
 
         var displayService = new DisplayService();
         var store = new ProfileStore();
@@ -48,9 +53,25 @@ public partial class App : Application
 
         CreateTrayIcon();
 
+        // Serve the other end of the shortcut fast path from now on.
+        InstanceChannel.StartServer(HandleRemoteCommand);
+
         // --tray (used by the sign-in Run entry) starts lightweight: tray icon only.
-        if (!e.Args.Contains(Vantage.App.Services.StartupManager.TrayArgument))
+        if (!command.TrayOnly)
             ShowMainWindow();
+    }
+
+    /// <summary>Handles a request forwarded by a second launch (arrives on the IPC thread).</summary>
+    private void HandleRemoteCommand(string message)
+    {
+        var command = LaunchCommand.FromMessage(message);
+        Dispatcher.InvokeAsync(async () =>
+        {
+            if (command.ApplyTarget is { } target)
+                await ViewModel.ApplyByTargetAsync(target);
+            else
+                ShowMainWindow();
+        });
     }
 
     private void CreateTrayIcon()

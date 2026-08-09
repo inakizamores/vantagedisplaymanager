@@ -89,6 +89,8 @@ public partial class ProfileItemViewModel(VantageProfile profile) : ObservableOb
     [ObservableProperty] private string _summaryText = "";
     [ObservableProperty] private System.Windows.Media.ImageSource? _layoutImage;
     [ObservableProperty] private string _hotkeyText = "";
+    [ObservableProperty] private string _shortcutText = "";
+    [ObservableProperty] private string _shortcutTooltip = "";
 
     public void Update(VantageProfile profile, ProfileMatchResult match)
     {
@@ -100,11 +102,20 @@ public partial class ProfileItemViewModel(VantageProfile profile) : ObservableOb
         SummaryText = string.Join("  ·  ", profile.Displays.Where(d => d.Enabled)
             .Select(d => $"{d.Width}×{d.Height}@{Math.Round(d.RefreshMillihertz / 1000.0)}"));
         HotkeyText = profile.Hotkey is { Length: > 0 } h ? HotkeyService.FormatGesture(h) : "";
-        LayoutImage = LayoutThumbnail.Render(profile.Displays
-            .Where(d => d.Enabled)
-            .Select(d => new ThumbnailDisplay(d.PositionX, d.PositionY, d.Width, d.Height, d.Primary, d.HdrEnabled == true))
-            .ToList());
+        LayoutImage = LayoutThumbnail.Render(ThumbnailDisplay.From(profile));
+
+        // Shortcuts the user deleted from Explorer shouldn't keep being reported as present.
+        var shortcuts = (profile.ShortcutPaths ?? []).Where(System.IO.File.Exists).ToList();
+        ShortcutText = shortcuts.Count > 0 ? "Shortcut" : "";
+        ShortcutTooltip = shortcuts.Count == 0
+            ? "Add this preset to the Start menu as a shortcut"
+            : $"Shortcut on {string.Join(" and ", shortcuts.Select(DescribeLocation).Distinct())} — click to change or remove it";
     }
+
+    private static string DescribeLocation(string shortcutPath) =>
+        string.Equals(System.IO.Path.GetDirectoryName(shortcutPath), ShortcutService.DesktopFolder, StringComparison.OrdinalIgnoreCase)
+            ? "your desktop"
+            : "the Start menu";
 }
 
 public partial class MainViewModel : ObservableObject
@@ -126,6 +137,75 @@ public partial class MainViewModel : ObservableObject
         _suppressSettingSideEffects = false;
 
         _ = RefreshAsync();
+
+        // Look for a new version quietly in the background. Nothing pops up — the Settings
+        // card just starts offering the update instead of a Check button.
+        _ = CheckForUpdatesAsync(silent: true);
+    }
+
+    // --- Updates ---
+
+    private readonly UpdateService _updates = new();
+
+    public string VersionText => $"Vantage {UpdateService.CurrentVersion}";
+
+    [ObservableProperty] private string _updateStatus = "";
+    [ObservableProperty] private bool _isCheckingForUpdates;
+    [ObservableProperty] private AvailableUpdate? _availableUpdate;
+
+    public bool HasUpdate => AvailableUpdate is not null;
+
+    partial void OnAvailableUpdateChanged(AvailableUpdate? value) => OnPropertyChanged(nameof(HasUpdate));
+
+    [RelayCommand]
+    private async Task CheckForUpdatesAsync(bool silent)
+    {
+        if (IsCheckingForUpdates)
+            return;
+
+        try
+        {
+            IsCheckingForUpdates = true;
+            if (!silent)
+                UpdateStatus = "Checking…";
+
+            var (update, error) = await _updates.CheckAsync();
+            AvailableUpdate = update;
+
+            UpdateStatus = (update, error, silent) switch
+            {
+                ({ } found, _, _) => $"Version {found.Version} is ready to install",
+                (null, { } problem, false) => problem,
+                (null, _, false) => "You're on the latest version",
+                // A silent check that found nothing says nothing — including when the network
+                // is down, which is not something to nag about on every launch.
+                _ => "",
+            };
+        }
+        finally
+        {
+            IsCheckingForUpdates = false;
+        }
+    }
+
+    [RelayCommand]
+    private void InstallUpdate()
+    {
+        if (AvailableUpdate is not { } update)
+            return;
+
+        // Never swap the install out from under a display change in flight.
+        if (IsBusy)
+        {
+            ShowStatus("Busy applying a profile", "Try updating again once the display change finishes.",
+                Wpf.Ui.Controls.InfoBarSeverity.Informational);
+            return;
+        }
+
+        new UpdateWindow(_updates, update)
+        {
+            Owner = System.Windows.Application.Current.MainWindow,
+        }.ShowDialog();
     }
 
     // --- Settings ---
@@ -258,6 +338,120 @@ public partial class MainViewModel : ObservableObject
         var item = Profiles.FirstOrDefault(p => p.Id == profileId);
         if (item is not null && item.IsPossible && !IsBusy)
             await ApplyProfileAsync(item);
+    }
+
+    /// <summary>
+    /// Applies a profile named by id or name — the request a preset shortcut forwards to
+    /// this instance over the IPC channel.
+    /// </summary>
+    public async Task ApplyByTargetAsync(string target)
+    {
+        var item = FindProfile(target);
+        if (item is null)
+        {
+            // The shortcut may point at a profile added since this instance last looked.
+            await RefreshAsync();
+            item = FindProfile(target);
+        }
+
+        if (item is null)
+        {
+            ShowStatus("Shortcut is out of date", $"No profile called '{target}' — it was renamed or deleted.",
+                Wpf.Ui.Controls.InfoBarSeverity.Warning);
+            return;
+        }
+
+        await ApplyProfileAsync(item);
+    }
+
+    private ProfileItemViewModel? FindProfile(string target) => Guid.TryParse(target, out var id)
+        ? Profiles.FirstOrDefault(p => p.Id == id)
+        : Profiles.FirstOrDefault(p => string.Equals(p.Name, target, StringComparison.OrdinalIgnoreCase));
+
+    // --- Shortcuts ---
+
+    [RelayCommand]
+    private async Task CreateShortcutAsync(ProfileItemViewModel item)
+    {
+        if (IsBusy)
+            return;
+
+        var dialog = new ShortcutWindow(item.Profile)
+        {
+            Owner = System.Windows.Application.Current.MainWindow,
+        };
+        if (dialog.ShowDialog() != true || dialog.Plan is not { } plan)
+            return;
+
+        try
+        {
+            // Clear out shortcuts we are not about to rewrite — the name drives the file name,
+            // so a renamed or relocated shortcut would otherwise be left behind as a duplicate.
+            // Paths that survive are overwritten in place further down rather than deleted and
+            // recreated, because replacing the file drops any Start pin made against it.
+            var keep = plan.Remove
+                ? []
+                : plan.Locations
+                    .Select(l => ShortcutService.PathFor(l, plan.Name, plan.GroupInStartMenu))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var stale in (item.Profile.ShortcutPaths ?? []).Where(p => !keep.Contains(p)))
+                ShortcutService.Delete(stale);
+            item.Profile.ShortcutPaths = null;
+
+            if (plan.Remove)
+            {
+                ShortcutIcon.DeleteFor(item.Id);
+                item.Profile.IconPath = null;
+                _store.Upsert(item.Profile);
+                ShowStatus("Shortcut removed", $"'{item.Name}' no longer has a shortcut.",
+                    Wpf.Ui.Controls.InfoBarSeverity.Informational);
+            }
+            else
+            {
+                // .ico and .exe carry icons already; anything else is converted to one.
+                var iconPath = plan.CustomIconPath switch
+                {
+                    null => ShortcutIcon.WriteLayoutIcon(item.Id, ThumbnailDisplay.From(item.Profile)),
+                    var custom when ShortcutIcon.IsIconContainer(custom) => custom,
+                    var custom => ShortcutIcon.WriteImageIcon(item.Id, custom),
+                };
+
+                item.Profile.ShortcutPaths = plan.Locations
+                    .Select(location => ShortcutService.Create(
+                        location,
+                        plan.Name,
+                        $"{LaunchCommand.ApplySwitch} {item.Id}",
+                        $"Switch displays to the '{item.Name}' preset",
+                        iconPath,
+                        plan.GroupInStartMenu))
+                    .ToList();
+                item.Profile.IconPath = plan.CustomIconPath;
+                _store.Upsert(item.Profile);
+
+                var places = string.Join(" and ", plan.Locations.Select(l => l switch
+                {
+                    ShortcutLocation.Desktop => "on your desktop",
+                    _ when plan.GroupInStartMenu => $"in the Start menu under {ShortcutService.StartMenuFolderName}",
+                    _ => "in the Start menu",
+                }));
+                ShowStatus("Shortcut ready", $"'{plan.Name}' is {places}. Opening it switches displays without opening the app.",
+                    Wpf.Ui.Controls.InfoBarSeverity.Success);
+            }
+
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowStatus("Could not update the shortcut", ex.Message, Wpf.Ui.Controls.InfoBarSeverity.Error);
+        }
+    }
+
+    private static void RemoveShortcuts(VantageProfile profile)
+    {
+        foreach (var path in profile.ShortcutPaths ?? [])
+            ShortcutService.Delete(path);
+        profile.ShortcutPaths = null;
     }
 
     [RelayCommand]
@@ -458,6 +652,9 @@ public partial class MainViewModel : ObservableObject
         if (result != Wpf.Ui.Controls.MessageBoxResult.Primary)
             return;
 
+        // Its shortcuts would be dead links otherwise.
+        RemoveShortcuts(item.Profile);
+        ShortcutIcon.DeleteFor(item.Id);
         _store.Delete(item.Id);
         await RefreshAsync();
         ShowStatus("Profile deleted", $"'{item.Name}' removed.", Wpf.Ui.Controls.InfoBarSeverity.Informational);

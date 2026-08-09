@@ -10,7 +10,17 @@
     <AssemblyTitle>Vantage Display Manager</AssemblyTitle>
     <ApplicationIcon>Assets\vantage.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Our own entry point instead of the one WPF generates, so a shortcut launch can hand
+         its request to the running instance before a single WPF type is touched. Building the
+         WPF Application costs ~1 s; the handover itself costs single-digit milliseconds. -->
+    <StartupObject>Vantage.App.Program</StartupObject>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- Compiling App.xaml as a Page rather than the ApplicationDefinition keeps its generated
+         InitializeComponent but drops the generated Main that would clash with Program. -->
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" SubType="Designer" Generator="MSBuild:Compile" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
     <PackageReference Include="Velopack" Version="1.2.0" />

@@ -189,12 +189,16 @@ internal static class Program
         }
 
         var engine = new ApplyEngine(displayService);
-        var progress = new Progress<ApplyProgress>(p => Console.WriteLine($"  {p.Step}: {p.Message}"));
+        // Stamp each step so the time actually goes somewhere visible: most of an apply is the
+        // display re-training, and this shows which step is doing the waiting.
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var progress = new Progress<ApplyProgress>(p =>
+            Console.WriteLine($"  [{clock.ElapsedMilliseconds,6} ms] {p.Step}: {p.Message}"));
         var report = await engine.ApplyAsync(profile, progress);
 
         if (report.Succeeded)
         {
-            Console.WriteLine($"Profile '{profile.Name}' applied and verified.");
+            Console.WriteLine($"Profile '{profile.Name}' applied and verified in {clock.ElapsedMilliseconds} ms.");
             return 0;
         }
 

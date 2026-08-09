@@ -54,11 +54,13 @@ as a thing you can return to.
 | 🎛️ **Preset editor** | Build "Ultra Wide", "Cinema", "Racing HDR" variants from dropdowns validated against your driver's real mode list — no round-trip through Windows Settings |
 | 🧭 **Layout editor** | Drag displays to rearrange them, Windows Settings style, with edge snapping — applied through the verified engine |
 | ⌨️ **Global hotkeys** | Assign a key combo to any profile; works system-wide even when Vantage runs tray-only |
+| 📌 **Start menu shortcuts** | Turn any preset into a Start menu (or desktop) shortcut carrying its own monitor-layout icon — or one you pick. Opening it switches displays without opening the app: the launched process lives about 35 ms, because the fast paths run before WPF is ever loaded |
 | 🎨 **HDR + color depth done right** | Windows 11 24H2 HDR API with legacy fallback, and output bpc pinned per profile via the GPU's own API (10 bpc for HDR, strictly 8 bpc for SDR) — no more washed-out colors from depth stuck between modes |
 | 🧬 **Profiles that survive** | Monitors identified by EDID serial — profiles survive reboots, driver updates, port swaps, and hybrid-GPU adapter shuffles |
 | 💾 **Reinstall-proof data** | Profiles and settings are plain JSON in `Documents\Vantage Display Manager` — survive uninstalls, copy to a new PC as one folder, ride along with OneDrive |
 | 🪟 **Native Windows 11** | Real OS window frame and caption buttons, Mica, dark/light theme, and your exact accent palette from Personalization |
 | 🫥 **Tray-first** | Instant start, quiet sign-in launch ("Start with Windows"), profiles one right-click away |
+| 🔄 **Updates itself** | Checks its own GitHub releases quietly at launch, shows you the release notes, then downloads and restarts. Profiles, shortcuts and settings live outside the install folder, so an update never touches them |
 | 🧪 **Tested engine** | Engine test suite runs over display-state fixtures recorded from real hardware, in CI on every push |
 | ⌨️ **Fully scriptable** | The `vantagectl` CLI mirrors everything, with JSON output and meaningful exit codes |
 
@@ -86,8 +88,9 @@ requires an NVIDIA GPU (AMD/Intel planned); everything else works on any GPU.
 2. Type a name → **Save current setup**.
 3. Want variants (different resolution, refresh, or HDR)? **New preset…** builds them from
    dropdowns — HDR presets automatically pin 10 bpc output, SDR presets pin 8 bpc.
-4. Switch from the app, the tray menu, a **hotkey** (keyboard button on each profile card), or
-   a script. Every apply is verified; failures revert automatically.
+4. Switch from the app, the tray menu, a **hotkey** (keyboard button on each profile card), a
+   **Start menu shortcut** (pin button on each profile card), or a script. Every apply is
+   verified; failures revert automatically.
 5. Setup drifted? The **overwrite** button on any profile card re-syncs it to your current
    setup in one click.
 
@@ -105,6 +108,65 @@ requires an NVIDIA GPU (AMD/Intel planned); everything else works on any GPU.
 </tr>
 </table>
 </div>
+
+### Start menu shortcuts
+
+The pin button on any profile card turns that preset into a real Windows shortcut. Choose the
+Start menu, the desktop, or both; the icon defaults to the preset's own monitor-layout
+thumbnail, rendered as a full multi-resolution `.ico`, and you can point it at any image,
+`.ico`, or program instead.
+
+Start menu shortcuts land in the All apps root, listed alongside your other apps — not inside a
+folder you have to expand (there's a checkbox if you'd rather group them). Typing the preset's
+name into Start and pressing Enter switches your displays. Nothing opens: the shortcut runs
+
+```text
+Vantage.exe --apply <profile id>
+```
+
+which takes one of two paths. If Vantage is already in the tray, the launched process hands the
+request over a named pipe and exits — the warm instance already has the display service loaded,
+so it does the switch. If nothing is running, the profile is applied head-on and the process
+exits.
+
+Both paths are decided in `Program.Main` **before any WPF type is touched**, which is the whole
+trick: constructing the WPF `Application` and merging the theme dictionaries costs ~90 ms, and
+a process that will never draw anything shouldn't pay it. Measured on the installed build:
+
+| Path | Time |
+|---|---|
+| Handover to a running instance (whole process lifetime) | ~36 ms |
+| Named-pipe round trip alone | ~3 ms |
+| Cold start, no instance running, up to profile resolution | ~166 ms |
+
+Everything is per-user; no shortcut ever needs administrator rights.
+
+Deleting a profile takes its shortcuts and generated icon with it, and uninstalling Vantage
+removes them all rather than leaving dead entries in the Start menu.
+
+Shortcuts are also kept working for the life of the install. A `.lnk` records an absolute path,
+so an update, a move, or a reinstall elsewhere would normally break every one of them; Vantage
+re-points them at itself from Velopack's after-install and after-update hooks, and again on each
+launch for moves those hooks don't see. Repairs happen **in place**, so a shortcut you pinned to
+Start stays pinned and keeps its icon. One thing that is never undone: a shortcut you delete
+yourself stays deleted.
+
+### Updating
+
+Vantage checks its own [GitHub releases](https://github.com/inakizamores/vantagedisplaymanager/releases)
+in the background at launch. Nothing interrupts you — the card at the bottom of **Settings**
+simply changes from *Check for updates* to *Update* when there's something new. Choosing it shows
+that version's release notes, then downloads with a progress bar and restarts into the new build.
+
+Release notes are extracted from [CHANGELOG.md](CHANGELOG.md) by the release workflow and embedded
+in the update package, so the app shows exactly what the release page shows, without calling the
+GitHub API.
+
+Nothing you own lives in the install folder — profiles, settings and shortcut icons are in
+`Documents\Vantage Display Manager`, and preset shortcuts are re-pointed at the new build by the
+after-update hook. An update is refused while a display change is in flight rather than swapping
+the app out mid-switch. The portable build isn't managed by Velopack, so it says so and links you
+to the releases page instead.
 
 ### CLI
 
@@ -193,15 +255,12 @@ pwsh build/make-branding.ps1
 - 🔆 **Brightness & monitor controls (DDC/CI)** — per-monitor brightness from the app and tray
   (SDR-white-level slider under HDR), monitor input switching (DP/HDMI), with the
   crash-sentinel hardening from the research
-- 🔄 **In-app auto-update** — the Velopack update feed already ships with every release;
-  wiring the app to check GitHub and update itself is the remaining step
 - 🎯 **Per-app automation** — "when this game launches: 240 Hz + HDR on; revert when it
   exits" via process events (no launcher catalogs, no polling)
 
 **Then**
 - ⏰ Time & event triggers — sunrise/sunset, dock/undock, resume from sleep
 - 🔊 Audio device switching per profile
-- 🖇️ Desktop shortcuts per profile (with the layout-thumbnail icons)
 - 📦 winget package (`winget install vantage`) and code signing (kills the SmartScreen warning)
 
 **Later**

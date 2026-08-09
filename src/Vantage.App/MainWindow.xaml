@@ -5,6 +5,7 @@
     xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
     xmlns:local="clr-namespace:Vantage.App"
     xmlns:vm="clr-namespace:Vantage.App.ViewModels"
+    xmlns:system="clr-namespace:System;assembly=System.Runtime"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
@@ -23,7 +24,9 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
         <local:InverseBooleanConverter x:Key="InverseBool" />
+        <local:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis" />
         <local:StringToSymbolConverter x:Key="StringToSymbol" />
+        <system:Boolean x:Key="False">False</system:Boolean>
     </Window.Resources>
 
     <Grid>
@@ -186,6 +189,17 @@
                                         ToolTip="Set a global hotkey for this profile"
                                         Command="{Binding DataContext.SetHotkeyCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                         CommandParameter="{Binding}" />
+                                    <!-- Labelled once a shortcut exists, the same way the hotkey
+                                         button labels itself with the gesture. -->
+                                    <ui:Button
+                                        Margin="8,0,0,0"
+                                        VerticalAlignment="Stretch"
+                                        Appearance="Secondary"
+                                        Icon="{ui:SymbolIcon Pin24}"
+                                        Content="{Binding ShortcutText}"
+                                        ToolTip="{Binding ShortcutTooltip}"
+                                        Command="{Binding DataContext.CreateShortcutCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}" />
                                     <ui:Button
                                         Margin="8,0,0,0"
                                         VerticalAlignment="Stretch"
@@ -230,6 +244,45 @@
                         </StackPanel>
                     </ui:CardControl.Header>
                     <ui:ToggleSwitch IsChecked="{Binding StartWithWindows, Mode=TwoWay}" />
+                </ui:CardControl>
+
+                <ui:CardControl Margin="0,0,0,8" Icon="{ui:SymbolIcon ArrowSync24}">
+                    <ui:CardControl.Header>
+                        <StackPanel>
+                            <ui:TextBlock FontTypography="BodyStrong" Text="{Binding VersionText}" />
+                            <TextBlock
+                                Text="{Binding UpdateStatus}"
+                                FontSize="12"
+                                TextWrapping="Wrap"
+                                Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                        </StackPanel>
+                    </ui:CardControl.Header>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:ProgressRing
+                            Width="20" Height="20"
+                            Margin="0,0,12,0"
+                            IsIndeterminate="True"
+                            Visibility="{Binding IsCheckingForUpdates, Converter={StaticResource BoolToVis}}" />
+                        <!-- One button, two jobs: check while up to date, install once there's
+                             something to install. -->
+                        <ui:Button
+                            VerticalAlignment="Stretch"
+                            Appearance="Secondary"
+                            Icon="{ui:SymbolIcon ArrowSync24}"
+                            Content="Check for updates"
+                            IsEnabled="{Binding IsCheckingForUpdates, Converter={StaticResource InverseBool}}"
+                            Visibility="{Binding HasUpdate, Converter={StaticResource InverseBoolToVis}}"
+                            Command="{Binding CheckForUpdatesCommand}"
+                            CommandParameter="{StaticResource False}" />
+                        <ui:Button
+                            VerticalAlignment="Stretch"
+                            Appearance="Primary"
+                            Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}"
+                            Icon="{ui:SymbolIcon ArrowDownload24}"
+                            Content="Update"
+                            Visibility="{Binding HasUpdate, Converter={StaticResource BoolToVis}}"
+                            Command="{Binding InstallUpdateCommand}" />
+                    </StackPanel>
                 </ui:CardControl>
 
                 <TextBlock

@@ -1,9 +1,17 @@
 using System.Windows;
 using System.Windows.Media;
+using Vantage.Core.Models;
 
 namespace Vantage.App;
 
-public sealed record ThumbnailDisplay(double X, double Y, double Width, double Height, bool Primary, bool HdrOn);
+public sealed record ThumbnailDisplay(double X, double Y, double Width, double Height, bool Primary, bool HdrOn)
+{
+    /// <summary>The drawable form of a profile's arrangement — used by cards, previews and shortcut icons.</summary>
+    public static List<ThumbnailDisplay> From(VantageProfile profile) => profile.Displays
+        .Where(d => d.Enabled)
+        .Select(d => new ThumbnailDisplay(d.PositionX, d.PositionY, d.Width, d.Height, d.Primary, d.HdrEnabled == true))
+        .ToList();
+}
 
 /// <summary>
 /// Renders a miniature of a monitor arrangement (DisplayMagician-style profile icons, but

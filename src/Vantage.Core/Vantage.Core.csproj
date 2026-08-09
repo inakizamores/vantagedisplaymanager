@@ -3,6 +3,10 @@
     <TargetFramework>net8.0-windows</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <!-- The engine's wait loop is timing-sensitive and safety-critical; the tests reach it directly. -->
+    <InternalsVisibleTo Include="Vantage.Core.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Vantage.Interop\Vantage.Interop.csproj" />
   </ItemGroup>
 </Project>
