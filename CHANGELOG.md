@@ -3,6 +3,14 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [0.6.3-beta] — 2026-08-09
+
+### Fixed
+- The version card in Settings sat empty under its title until you pressed Check for updates —
+  the line below the version was bound to a status that is deliberately blank when the silent
+  startup check finds nothing. It now carries a description of what the app does on its own,
+  the same way the Start with Windows card above it explains itself.
+
 ## [0.6.2-beta] — 2026-08-09
 
 ### Fixed

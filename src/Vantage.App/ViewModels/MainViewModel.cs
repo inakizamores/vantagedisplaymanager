@@ -149,7 +149,15 @@ public partial class MainViewModel : ObservableObject
 
     public string VersionText => $"Vantage {UpdateService.CurrentVersion}";
 
-    [ObservableProperty] private string _updateStatus = "";
+    /// <summary>
+    /// Shown until there is something more specific to say. The card sits next to one that
+    /// explains itself in a line of grey text, and an empty second line makes it look broken —
+    /// so this describes what the app does on its own rather than leaving a gap.
+    /// </summary>
+    private const string IdleUpdateStatus =
+        "Checks for new versions at startup — updating keeps your profiles, shortcuts and settings";
+
+    [ObservableProperty] private string _updateStatus = IdleUpdateStatus;
     [ObservableProperty] private bool _isCheckingForUpdates;
     [ObservableProperty] private AvailableUpdate? _availableUpdate;
 
@@ -177,9 +185,9 @@ public partial class MainViewModel : ObservableObject
                 ({ } found, _, _) => $"Version {found.Version} is ready to install",
                 (null, { } problem, false) => problem,
                 (null, _, false) => "You're on the latest version",
-                // A silent check that found nothing says nothing — including when the network
-                // is down, which is not something to nag about on every launch.
-                _ => "",
+                // A silent check that found nothing goes back to saying nothing in particular,
+                // including when the network is down. Not worth nagging about on every launch.
+                _ => IdleUpdateStatus,
             };
         }
         finally
