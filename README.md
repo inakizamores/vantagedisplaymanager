@@ -184,6 +184,17 @@ vantagectl snapshot              Full state dump (diagnostics / test fixtures)
 
 Add `--json` to `list`, `profiles`, or `active` for machine-readable output.
 
+`Vantage.exe` itself takes three switches, the ones shortcuts and the sign-in entry use:
+
+```text
+Vantage.exe --apply <profile id or name>   Switch to a profile and exit, no window
+Vantage.exe --tray                         Start in the tray only (no window)
+Vantage.exe --update                       Check GitHub, download, install, relaunch
+```
+
+`--update` exits 0 when it updated, 1 when already current, 2 for a copy the setup program
+didn't install, and 3 on failure.
+
 ## How it works
 
 The engine is built on the Windows CCD API (`QueryDisplayConfig` / `SetDisplayConfig`) with a

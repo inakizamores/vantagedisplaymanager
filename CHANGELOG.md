@@ -3,6 +3,19 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [0.6.2-beta] — 2026-08-09
+
+### Fixed
+- `--update` reported an installed copy as "not installed by the setup program" and refused to
+  update it. `VelopackApp.Run()` is what tells Velopack where the app lives, and the new switch
+  returned before reaching it — so the locator found nothing and `IsInstalled` came back false.
+  The hooks now run on that path too. The in-app Update button was never affected; it goes
+  through the normal startup path, which always ran them.
+
+### Added
+- `Vantage.exe`'s own switches (`--apply`, `--tray`, `--update`) are documented in the README
+  alongside the `vantagectl` commands, with their exit codes.
+
 ## [0.6.1-beta] — 2026-08-09
 
 ### Added

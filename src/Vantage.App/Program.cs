@@ -33,9 +33,14 @@ internal static class Program
         var command = LaunchCommand.Parse(args);
 
         // Before the single-instance mutex: updating is Velopack's business whether or not a
-        // copy is already running, and it knows how to deal with the running one.
+        // copy is already running, and it knows how to deal with the running one. The hooks
+        // have to run first — they are what tell Velopack where it is installed, without which
+        // UpdateManager reports an installed copy as portable and refuses to update it.
         if (command.Update)
+        {
+            RunVelopackHooks();
             return UpdateHeadless();
+        }
 
         var mutex = new Mutex(true, @"Local\VantageDisplayManager", out var owned);
 
@@ -171,6 +176,23 @@ internal static class Program
     private static extern bool AttachConsole(uint processId);
 
     /// <summary>
+    /// Velopack's install/update/uninstall hooks, and the call that tells it where this copy
+    /// lives. A no-op outside an installed context, but it has to happen before anything asks
+    /// about updates.
+    ///
+    /// An update swaps the folder the shortcuts point into, so this is the moment to fix them:
+    /// Velopack rewrites its own Start menu entry here, and preset shortcuts get the same
+    /// treatment rather than being left to rot. Uninstalling takes them with it.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void RunVelopackHooks() =>
+        Velopack.VelopackApp.Build()
+            .OnAfterInstallFastCallback(_ => ShortcutReconciler.Reconcile(new ProfileStore()))
+            .OnAfterUpdateFastCallback(_ => ShortcutReconciler.Reconcile(new ProfileStore()))
+            .OnBeforeUninstallFastCallback(_ => ShortcutReconciler.RemoveAll(new ProfileStore()))
+            .Run();
+
+    /// <summary>
     /// The headless path is silent when it works. When it doesn't there is no window and no
     /// tray icon to put a message in, so use the one thing that needs neither.
     /// </summary>
@@ -191,16 +213,7 @@ internal static class Program
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static int RunApp(Mutex? singleInstanceMutex)
     {
-        // Velopack install/update/uninstall hooks — must run before anything else.
-        //
-        // An update swaps the folder the shortcuts point into, so this is the moment to fix
-        // them: Velopack rewrites its own Start menu entry here, and preset shortcuts get the
-        // same treatment rather than being left to rot. Uninstalling takes them with it.
-        Velopack.VelopackApp.Build()
-            .OnAfterInstallFastCallback(_ => ShortcutReconciler.Reconcile(new ProfileStore()))
-            .OnAfterUpdateFastCallback(_ => ShortcutReconciler.Reconcile(new ProfileStore()))
-            .OnBeforeUninstallFastCallback(_ => ShortcutReconciler.RemoveAll(new ProfileStore()))
-            .Run();
+        RunVelopackHooks();
 
         var app = new App(singleInstanceMutex);
         app.InitializeComponent();
