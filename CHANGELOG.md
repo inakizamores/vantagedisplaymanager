@@ -3,6 +3,21 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [1.0.1] — 2026-08-09
+
+### Fixed
+- **Preset shortcuts now survive version updates.** Installing a new version by running its
+  Setup.exe over an existing copy uninstalls the old version first — whose uninstall hook
+  deleted every preset shortcut, leaving Start pins dead until each one was recreated by
+  hand. The install and update hooks now restore every recorded shortcut instead: a missing
+  `.lnk` is recreated at the exact path it lived at (which revives any Start pin made
+  against it), a surviving one is re-pointed in place. Repairs now also fix a shortcut
+  whose icon file went missing, not just its target.
+
+### Added
+- **Settings → Repair preset shortcuts.** The same restore, on a button — for shortcuts a
+  past update already broke, or any other time a `.lnk` stops working.
+
 ## [1.0.0] — 2026-08-09
 
 The first stable release. Everything the betas built — the verified apply engine with

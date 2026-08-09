@@ -72,9 +72,20 @@ public static class ShortcutService
         string? iconPath,
         bool grouped = false)
     {
-        var folder = FolderFor(location, grouped);
-        Directory.CreateDirectory(folder);
-        var path = Path.Combine(folder, SanitizeFileName(name) + ".lnk");
+        var path = Path.Combine(FolderFor(location, grouped), SanitizeFileName(name) + ".lnk");
+        CreateAt(path, arguments, description, iconPath);
+        return path;
+    }
+
+    /// <summary>
+    /// Writes the shortcut at exactly this path. Recreating a deleted .lnk at the path it used
+    /// to occupy is what brings a Start pin made against it back to life, so restoration goes
+    /// through here rather than through <see cref="Create"/>'s name-to-path mapping.
+    /// </summary>
+    public static void CreateAt(string path, string arguments, string description, string? iconPath)
+    {
+        if (Path.GetDirectoryName(path) is { Length: > 0 } folder)
+            Directory.CreateDirectory(folder);
 
         var exe = Environment.ProcessPath
             ?? throw new InvalidOperationException("Could not determine the path of the running executable.");
@@ -93,8 +104,6 @@ public static class ShortcutService
         {
             Marshal.FinalReleaseComObject(link);
         }
-
-        return path;
     }
 
     /// <summary>The executable an existing .lnk points at, or null if it cannot be read.</summary>
@@ -118,12 +127,35 @@ public static class ShortcutService
         }
     }
 
+    /// <summary>The file an existing .lnk takes its icon from, or null if it cannot be read.</summary>
+    public static string? IconOf(string path)
+    {
+        var link = (IShellLinkW)new ShellLink();
+        try
+        {
+            ((IPersistFile)link).Load(path, StgmRead);
+            var buffer = new StringBuilder(1024);
+            link.GetIconLocation(buffer, buffer.Capacity, out _);
+            return buffer.Length > 0 ? buffer.ToString() : null;
+        }
+        catch (Exception ex) when (ex is COMException or IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+        finally
+        {
+            Marshal.FinalReleaseComObject(link);
+        }
+    }
+
     /// <summary>
     /// Re-points an existing shortcut at the executable running now, in place. Everything else
     /// about the file — its name, its icon, and any Start pin the user made against it — is
     /// left alone, which is the whole reason this exists instead of delete-then-recreate.
+    /// The icon is only touched when the file it references no longer exists, and then
+    /// becomes <paramref name="iconPath"/> (or the exe's own icon when that is null).
     /// </summary>
-    public static bool Repair(string path, string arguments, string description)
+    public static bool Repair(string path, string arguments, string description, string? iconPath = null)
     {
         if (Environment.ProcessPath is not { } exe)
             return false;
@@ -137,6 +169,15 @@ public static class ShortcutService
             link.SetArguments(arguments);
             link.SetDescription(Truncate(description, 259));
             link.SetWorkingDirectory(Path.GetDirectoryName(exe) ?? string.Empty);
+
+            // An icon reference can die independently of the target — it may have pointed at
+            // the old exe, or at an icon folder that moved. Shell icon paths may carry
+            // environment variables, so expand before checking.
+            var icon = new StringBuilder(1024);
+            link.GetIconLocation(icon, icon.Capacity, out _);
+            if (icon.Length == 0 || !File.Exists(Environment.ExpandEnvironmentVariables(icon.ToString())))
+                link.SetIconLocation(iconPath is { Length: > 0 } ? iconPath : exe, 0);
+
             file.Save(null!, fRemember: true);   // null = save back over the file it came from
             return true;
         }

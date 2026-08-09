@@ -303,6 +303,25 @@
                         Command="{Binding OpenDataFolderCommand}" />
                 </ui:CardControl>
 
+                <ui:CardControl Margin="0,0,0,8" Icon="{ui:SymbolIcon Wrench24}">
+                    <ui:CardControl.Header>
+                        <StackPanel>
+                            <ui:TextBlock FontTypography="BodyStrong" Text="Repair preset shortcuts" />
+                            <TextBlock
+                                Text="Puts back any Start menu or desktop shortcut an update or reinstall broke — Start pins return to their spots"
+                                FontSize="12"
+                                TextWrapping="Wrap"
+                                Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                        </StackPanel>
+                    </ui:CardControl.Header>
+                    <ui:Button
+                        VerticalAlignment="Stretch"
+                        Appearance="Secondary"
+                        Icon="{ui:SymbolIcon Wrench24}"
+                        Content="Repair now"
+                        Command="{Binding RepairShortcutsCommand}" />
+                </ui:CardControl>
+
                 <ui:CardControl Margin="0,0,0,8" Icon="{ui:SymbolIcon ArrowSync24}">
                     <ui:CardControl.Header>
                         <StackPanel>

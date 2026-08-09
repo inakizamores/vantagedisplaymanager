@@ -593,6 +593,49 @@ public partial class MainViewModel : ObservableObject
         profile.ShortcutPaths = null;
     }
 
+    /// <summary>
+    /// The Settings-page escape hatch for shortcuts an update or reinstall broke: puts every
+    /// recorded shortcut back at the path it lived at, which also revives any Start pin made
+    /// against it. Runs on the UI thread on purpose — it is quick, and recreating an icon
+    /// needs WPF rendering, which a pool thread is not allowed to do.
+    /// </summary>
+    [RelayCommand]
+    private async Task RepairShortcutsAsync()
+    {
+        if (IsBusy)
+            return;
+
+        var result = ShortcutReconciler.Restore(_store);
+        await RefreshAsync();
+
+        if (result.Total == 0)
+        {
+            ShowStatus("No shortcuts to repair", "No preset has a shortcut yet — use Shortcut on a preset to create one.",
+                Wpf.Ui.Controls.InfoBarSeverity.Informational);
+        }
+        else if (result is { Recreated: 0, Repaired: 0 })
+        {
+            ShowStatus("Shortcuts are healthy",
+                result.Intact == 1
+                    ? "Your shortcut already points at this copy of Vantage."
+                    : $"All {result.Intact} shortcuts already point at this copy of Vantage.",
+                Wpf.Ui.Controls.InfoBarSeverity.Success);
+        }
+        else
+        {
+            List<string> parts = [];
+            if (result.Recreated > 0)
+                parts.Add($"{result.Recreated} recreated");
+            if (result.Repaired > 0)
+                parts.Add($"{result.Repaired} repaired");
+            if (result.Intact > 0)
+                parts.Add($"{result.Intact} already fine");
+            ShowStatus("Shortcuts repaired",
+                $"{string.Join(", ", parts)}. Start pins made against a recreated shortcut come back with it.",
+                Wpf.Ui.Controls.InfoBarSeverity.Success);
+        }
+    }
+
     [RelayCommand]
     private async Task SetHotkeyAsync(ProfileItemViewModel item)
     {

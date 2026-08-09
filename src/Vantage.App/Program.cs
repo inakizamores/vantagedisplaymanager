@@ -215,15 +215,19 @@ internal static class Program
     /// lives. A no-op outside an installed context, but it has to happen before anything asks
     /// about updates.
     ///
-    /// An update swaps the folder the shortcuts point into, so this is the moment to fix them:
-    /// Velopack rewrites its own Start menu entry here, and preset shortcuts get the same
-    /// treatment rather than being left to rot. Uninstalling takes them with it.
+    /// An install or update is exactly when preset shortcuts get hurt: an update can move the
+    /// folder they point into, and a full Setup.exe run over an existing copy uninstalls the
+    /// old version first — whose before-uninstall hook deletes every preset shortcut on the
+    /// way out. So both landing hooks run the full restore: Velopack rewrites its own Start
+    /// menu entry here, and preset shortcuts are recreated or repaired from the profile store
+    /// (which lives in Documents and survives all of this) rather than being left to rot.
+    /// Uninstalling takes the shortcuts with it, but keeps them on the books for next time.
     /// </summary>
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void RunVelopackHooks() =>
         Velopack.VelopackApp.Build()
-            .OnAfterInstallFastCallback(_ => ShortcutReconciler.Reconcile(new ProfileStore()))
-            .OnAfterUpdateFastCallback(_ => ShortcutReconciler.Reconcile(new ProfileStore()))
+            .OnAfterInstallFastCallback(_ => ShortcutReconciler.Restore(new ProfileStore()))
+            .OnAfterUpdateFastCallback(_ => ShortcutReconciler.Restore(new ProfileStore()))
             .OnBeforeUninstallFastCallback(_ => ShortcutReconciler.RemoveAll(new ProfileStore()))
             .Run();
 
