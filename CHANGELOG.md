@@ -7,7 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow 
 
 ### Changed
 - **Updates are now delta downloads.** Updating from the previous version transfers only what
-  actually changed — about 16 MB instead of the full ~75 MB package. The full package is still
+  actually changed — about 2 MB instead of the full ~75 MB package (1.0.2 → 1.0.3 touched 17
+  of 477 files). The full package is still
   published, so a client that can't apply a delta (or is coming from an older version) simply
   falls back to it. Delta generation was never switched off; the release pipeline just never
   gave the packer a previous release to compare against, so every release so far shipped
