@@ -51,7 +51,9 @@ public class MonitorIdentityResolverTests
         // Windows does not promise a stable path order, and an order-dependent id would hand
         // one monitor another's settings after a reboot — worse than the crash it replaced.
         var forward = Pairs(ReportedSetup);
-        var reversed = Pairs(ReportedSetup.Reverse().ToArray());
+        // Enumerable.Reverse spelled out: on a newer SDK, ReportedSetup.Reverse() binds to the
+        // void MemoryExtensions.Reverse(Span<T>) instead, which does not compile here.
+        var reversed = Pairs(Enumerable.Reverse(ReportedSetup).ToArray());
 
         Assert.Equal(forward, reversed);
 
