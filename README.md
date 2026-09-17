@@ -76,7 +76,8 @@ as a thing you can return to.
 
 > **SmartScreen note:** binaries are not yet code-signed, so Windows may show
 > "Windows protected your PC" on first run. Click **More info → Run anyway**, and verify the
-> SHA-256 against `checksums.txt` if in doubt. Code signing is planned via SignPath.
+> SHA-256 against `checksums.txt` if in doubt. Signing is in progress — see the
+> [code signing policy](#code-signing-policy).
 
 **Requirements:** Windows 10 20H2+ (Windows 11 recommended — HDR features use the 24H2 APIs
 when available). x64. No administrator rights needed, ever. Color-depth control currently
