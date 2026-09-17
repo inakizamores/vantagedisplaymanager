@@ -3,6 +3,27 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [1.0.3] — 2026-09-17
+
+### Changed
+- **Updates are now delta downloads.** Updating from the previous version transfers only what
+  actually changed — about 16 MB instead of the full ~75 MB package. The full package is still
+  published, so a client that can't apply a delta (or is coming from an older version) simply
+  falls back to it. Delta generation was never switched off; the release pipeline just never
+  gave the packer a previous release to compare against, so every release so far shipped
+  full-only.
+- **UI framework and dependencies updated** — WPF-UI 3.0.5 → 4.3.0, CommunityToolkit.Mvvm
+  8.3.2 → 8.4.2, H.NotifyIcon.Wpf 2.1.3 → 2.3.2, and the test stack to xunit 2.9.3 with
+  Microsoft.NET.Test.Sdk 18.10.1.
+
+### Fixed
+- **A release can no longer publish itself half-finished.** GitHub's asset upload endpoint
+  intermittently answers HTTP 500 on the larger files, and on 1.0.2 that left a release
+  carrying two of its six files — with an update feed pointing at packages that weren't
+  there. The pipeline now builds each release as a draft, uploads one file at a time with
+  retries, and refuses to make the release visible until it has verified every file is
+  present.
+
 ## [1.0.2] — 2026-09-17
 
 ### Fixed
