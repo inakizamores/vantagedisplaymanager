@@ -1,4 +1,4 @@
-using Vantage.Core.Models;
+﻿using Vantage.Core.Models;
 using Vantage.Interop;
 using Vantage.Interop.Ccd;
 using Vantage.Interop.Gdi;
@@ -147,7 +147,8 @@ public sealed class ApplyEngine(DisplayService displayService)
 
             // 5. Per-display settings, each verified by re-query.
             var snapshot = displayService.Capture();
-            var byStableId = snapshot.Displays.ToDictionary(d => d.Identity.StableId, StringComparer.OrdinalIgnoreCase);
+            var byStableId = SafeIndex.By(snapshot.Displays, d => d.Identity.StableId,
+                nameof(ApplyEngine), StringComparer.OrdinalIgnoreCase);
 
             foreach (var wanted in profile.Displays.Where(d => d.Enabled))
             {
@@ -304,7 +305,8 @@ public sealed class ApplyEngine(DisplayService displayService)
     private bool ReconcileModes(VantageProfile profile, Action<ApplyStepKind, string> report)
     {
         var snapshot = displayService.Capture();
-        var liveById = snapshot.Displays.ToDictionary(d => d.Identity.StableId, StringComparer.OrdinalIgnoreCase);
+        var liveById = SafeIndex.By(snapshot.Displays, d => d.Identity.StableId,
+            nameof(ApplyEngine), StringComparer.OrdinalIgnoreCase);
         var staged = false;
 
         foreach (var wanted in profile.Displays.Where(d => d.Enabled))

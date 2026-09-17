@@ -113,8 +113,50 @@ public sealed class ProfileStore
             throw new InvalidOperationException(
                 $"Profile store schema v{envelope.SchemaVersion} is newer than this build supports (v{CurrentSchemaVersion}). Update Vantage.");
 
+        foreach (var profile in envelope.Profiles)
+            RepairIdentities(profile, $"loading '{profile.Name}'");
+
         // Future migrations: back up, then transform envelope stepwise to CurrentSchemaVersion.
         return envelope;
+    }
+
+    /// <summary>
+    /// Gives every display in <paramref name="profile"/> a distinct stable id, repairing files
+    /// written before identities were disambiguated (issue #9: three identical panels all saved
+    /// as <c>AUS43E1_125727</c>). The stored PnP instance path is what tells them apart, and it
+    /// is the same input <see cref="DisplayService"/> resolves live ids from — so a repaired
+    /// profile lines up with the hardware it was captured on, with no reconfiguration needed.
+    ///
+    /// Deliberately not gated on <see cref="ProfileFileEnvelope.SchemaVersion"/>: the file's
+    /// shape is unchanged, only the id values, so a repaired file still loads in older builds
+    /// rather than tripping their "newer than this build supports" guard. The pass is
+    /// idempotent and a no-op for the vast majority of profiles, which have no duplicates.
+    /// </summary>
+    internal static bool RepairIdentities(VantageProfile profile, string context)
+    {
+        var seeds = profile.Displays
+            .Select(d => new MonitorIdentitySeed(d.Identity.StableId, d.Identity.DeviceInstanceId))
+            .ToArray();
+        if (seeds.Length < 2)
+            return false;
+
+        var resolved = MonitorIdentityResolver.Resolve(seeds);
+        var changed = false;
+
+        for (var i = 0; i < profile.Displays.Count; i++)
+        {
+            var display = profile.Displays[i];
+            if (string.Equals(resolved[i], display.Identity.StableId, StringComparison.Ordinal))
+                continue;
+
+            AppLog.Write(nameof(ProfileStore),
+                $"{context}: display '{display.Identity.StableId}' shares its EDID identity; " +
+                $"re-keyed as '{resolved[i]}'.");
+            profile.Displays[i] = display with { Identity = display.Identity with { StableId = resolved[i] } };
+            changed = true;
+        }
+
+        return changed;
     }
 
     /// <summary>Moves the corrupt file aside under a timestamped name and returns that path.</summary>
@@ -137,6 +179,12 @@ public sealed class ProfileStore
         using var _ = AcquireFileLock();
 
         envelope.LastUpdated = DateTimeOffset.Now;
+
+        // Last line of defense: never persist a profile whose displays can't be told apart,
+        // whatever built it.
+        foreach (var profile in envelope.Profiles)
+            RepairIdentities(profile, $"saving '{profile.Name}'");
+
         var dir = Path.GetDirectoryName(_filePath)!;
         Directory.CreateDirectory(dir);
 

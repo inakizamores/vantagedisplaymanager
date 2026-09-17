@@ -1,0 +1,141 @@
+{
+  "capturedAt": "2026-09-08T11:55:17+00:00",
+  "displays": [
+    {
+      "identity": {
+        "stableId": "AUS43E1_125727#UID37123",
+        "deviceInstanceId": "DISPLAY\\AUS43E1\\5&1f256ffa&0&UID37123",
+        "friendlyName": "ASUS XG438",
+        "edidManufacturer": "AUS",
+        "edidProductCode": 17377,
+        "edidSerial": "125727"
+      },
+      "address": {
+        "adapterLuid": 61048,
+        "sourceId": 0,
+        "targetId": 37123
+      },
+      "gdiDeviceName": "\\\\.\\DISPLAY1",
+      "adapterDevicePath": "\\\\?\\PCI#VEN_10DE&DEV_1EC7&SUBSYS_87011043&REV_A1#4&1fc990d7&0&0019#{5b45201d-f2f2-4f3b-85bb-30ff1f953599}",
+      "outputTechnology": "DisplayPortExternal",
+      "isPrimary": true,
+      "positionX": 0,
+      "positionY": 0,
+      "width": 3840,
+      "height": 2160,
+      "refreshMillihertz": 119994,
+      "rotation": "landscape",
+      "scaling": "Identity",
+      "hdr": {
+        "supported": true,
+        "enabled": false,
+        "activeColorMode": "Sdr",
+        "bitsPerColorChannel": 8,
+        "colorEncoding": "Rgb",
+        "sdrWhiteLevelNits": 80
+      },
+      "dpi": {
+        "currentPercent": 200,
+        "recommendedPercent": 300,
+        "minPercent": 100,
+        "maxPercent": 350
+      },
+      "physicalWidthMm": 941,
+      "physicalHeightMm": 529,
+      "outputBpc": 8
+    },
+    {
+      "identity": {
+        "stableId": "AUS43E1_125727#UID37120",
+        "deviceInstanceId": "DISPLAY\\AUS43E1\\5&1f256ffa&0&UID37120",
+        "friendlyName": "ASUS XG438",
+        "edidManufacturer": "AUS",
+        "edidProductCode": 17377,
+        "edidSerial": "125727"
+      },
+      "address": {
+        "adapterLuid": 61048,
+        "sourceId": 1,
+        "targetId": 37120
+      },
+      "gdiDeviceName": "\\\\.\\DISPLAY2",
+      "adapterDevicePath": "\\\\?\\PCI#VEN_10DE&DEV_1EC7&SUBSYS_87011043&REV_A1#4&1fc990d7&0&0019#{5b45201d-f2f2-4f3b-85bb-30ff1f953599}",
+      "outputTechnology": "Hdmi",
+      "isPrimary": false,
+      "positionX": -3840,
+      "positionY": 0,
+      "width": 3840,
+      "height": 2160,
+      "refreshMillihertz": 59940,
+      "rotation": "landscape",
+      "scaling": "Identity",
+      "hdr": {
+        "supported": true,
+        "enabled": false,
+        "activeColorMode": "Sdr",
+        "bitsPerColorChannel": 8,
+        "colorEncoding": "Rgb",
+        "sdrWhiteLevelNits": 80
+      },
+      "dpi": {
+        "currentPercent": 200,
+        "recommendedPercent": 300,
+        "minPercent": 100,
+        "maxPercent": 350
+      },
+      "physicalWidthMm": 941,
+      "physicalHeightMm": 529,
+      "outputBpc": 8
+    },
+    {
+      "identity": {
+        "stableId": "AUS43E1_125727#UID37125",
+        "deviceInstanceId": "DISPLAY\\AUS43E1\\5&1f256ffa&0&UID37125",
+        "friendlyName": "ASUS XG438",
+        "edidManufacturer": "AUS",
+        "edidProductCode": 17377,
+        "edidSerial": "125727"
+      },
+      "address": {
+        "adapterLuid": 61048,
+        "sourceId": 2,
+        "targetId": 37125
+      },
+      "gdiDeviceName": "\\\\.\\DISPLAY3",
+      "adapterDevicePath": "\\\\?\\PCI#VEN_10DE&DEV_1EC7&SUBSYS_87011043&REV_A1#4&1fc990d7&0&0019#{5b45201d-f2f2-4f3b-85bb-30ff1f953599}",
+      "outputTechnology": "Hdmi",
+      "isPrimary": false,
+      "positionX": 3840,
+      "positionY": 0,
+      "width": 3840,
+      "height": 2160,
+      "refreshMillihertz": 59940,
+      "rotation": "landscape",
+      "scaling": "Identity",
+      "hdr": {
+        "supported": true,
+        "enabled": false,
+        "activeColorMode": "Sdr",
+        "bitsPerColorChannel": 8,
+        "colorEncoding": "Rgb",
+        "sdrWhiteLevelNits": 80
+      },
+      "dpi": {
+        "currentPercent": 200,
+        "recommendedPercent": 300,
+        "minPercent": 100,
+        "maxPercent": 350
+      },
+      "physicalWidthMm": 941,
+      "physicalHeightMm": 529,
+      "outputBpc": 8
+    }
+  ],
+  "replay": {
+    "paths": [],
+    "modes": [],
+    "adapterPaths": {
+      "EE78": "\\\\?\\PCI#VEN_10DE&DEV_1EC7&SUBSYS_87011043&REV_A1#4&1fc990d7&0&0019#{5b45201d-f2f2-4f3b-85bb-30ff1f953599}"
+    }
+  }
+}

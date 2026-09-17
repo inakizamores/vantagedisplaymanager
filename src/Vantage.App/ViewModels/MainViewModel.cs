@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Windows.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -13,10 +13,10 @@ public partial class DisplayItemViewModel : ObservableObject
     private readonly MainViewModel _owner;
     private bool _suppressHdrToggle;
 
-    public DisplayItemViewModel(MainViewModel owner, DisplayState state)
+    public DisplayItemViewModel(MainViewModel owner, DisplayState state, string? qualifier = null)
     {
         _owner = owner;
-        Update(state);
+        Update(state, qualifier);
     }
 
     public string StableId { get; private set; } = "";
@@ -30,10 +30,16 @@ public partial class DisplayItemViewModel : ObservableObject
     [ObservableProperty] private bool _hdrOn;
     [ObservableProperty] private string _iconSymbol = "Desktop24";
 
-    public void Update(DisplayState d)
+    public void Update(DisplayState d) => Update(d, null);
+
+    /// <param name="qualifier">
+    /// Appended to the name when another connected display shares this one's model name —
+    /// three identical panels would otherwise be three identical rows.
+    /// </param>
+    public void Update(DisplayState d, string? qualifier)
     {
         StableId = d.Identity.StableId;
-        Name = d.Identity.FriendlyName ?? d.Identity.StableId;
+        Name = (d.Identity.FriendlyName ?? d.Identity.StableId) + (qualifier is null ? "" : $" ({qualifier})");
         IsPrimary = d.IsPrimary;
         BadgeText = d.IsPrimary ? "Primary" : "";
         ModeText = $"{d.Width} × {d.Height} · {d.RefreshHz:0.###} Hz";
@@ -65,7 +71,7 @@ public partial class DisplayItemViewModel : ObservableObject
         _suppressHdrToggle = false;
     }
 
-    private static string Prettify(string outputTechnology) => outputTechnology switch
+    internal static string Prettify(string outputTechnology) => outputTechnology switch
     {
         "DisplayPortExternal" or "DisplayPortEmbedded" or "DisplayPortUsbTunnel" => "DisplayPort",
         "Hdmi" => "HDMI",
@@ -365,21 +371,50 @@ public partial class MainViewModel : ObservableObject
 
     private void SyncDisplays(SystemSnapshot snapshot)
     {
-        var byId = Displays.ToDictionary(d => d.StableId, StringComparer.OrdinalIgnoreCase);
+        var byId = SafeIndex.By(Displays, d => d.StableId, nameof(MainViewModel), StringComparer.OrdinalIgnoreCase);
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var qualifiers = BuildNameQualifiers(snapshot);
 
         foreach (var state in snapshot.Displays)
         {
             seen.Add(state.Identity.StableId);
+            qualifiers.TryGetValue(state.Identity.StableId, out var qualifier);
             if (byId.TryGetValue(state.Identity.StableId, out var vm))
-                vm.Update(state);
+                vm.Update(state, qualifier);
             else
-                Displays.Add(new DisplayItemViewModel(this, state));
+                Displays.Add(new DisplayItemViewModel(this, state, qualifier));
         }
 
         for (var i = Displays.Count - 1; i >= 0; i--)
             if (!seen.Contains(Displays[i].StableId))
                 Displays.RemoveAt(i);
+    }
+
+    /// <summary>
+    /// Suffixes for displays whose model name is shared with another connected display, so
+    /// three identical panels don't render as three identical rows. Uses the Windows display
+    /// number (\.\DISPLAY2 -> "Display 2") because that is the label the user already sees
+    /// in Windows' own display settings.
+    /// </summary>
+    private static Dictionary<string, string> BuildNameQualifiers(SystemSnapshot snapshot)
+    {
+        var qualifiers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var duplicated = snapshot.Displays
+            .GroupBy(d => d.Identity.FriendlyName ?? d.Identity.StableId, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1)
+            .SelectMany(g => g);
+
+        foreach (var d in duplicated)
+        {
+            var number = d.GdiDeviceName is { Length: > 0 } gdi
+                ? new string(gdi.Where(char.IsAsciiDigit).ToArray())
+                : "";
+            qualifiers[d.Identity.StableId] = number.Length > 0
+                ? $"Display {number}"
+                : DisplayItemViewModel.Prettify(d.OutputTechnology);
+        }
+
+        return qualifiers;
     }
 
     private void SyncProfiles(ProfileFileEnvelope envelope, SystemSnapshot snapshot)
