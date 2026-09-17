@@ -7,7 +7,7 @@
     <!-- AssemblyVersion/FileVersion derive from Version automatically; the release
          workflow overrides Version from the tag, so hardcoding them here would ship
          binaries stamped with a stale file version. -->
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <Authors>Iñaki Zamores</Authors>
     <Company>Vantage</Company>
     <Product>Vantage Display Manager</Product>

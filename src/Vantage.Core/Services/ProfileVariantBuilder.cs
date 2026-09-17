@@ -1,4 +1,4 @@
-using Vantage.Core.Models;
+﻿using Vantage.Core.Models;
 using Vantage.Interop.Gdi;
 
 namespace Vantage.Core.Services;
@@ -23,7 +23,8 @@ public static class ProfileVariantBuilder
 {
     public static VantageProfile Build(SystemSnapshot snapshot, string name, IReadOnlyList<DisplayOverride> overrides)
     {
-        var liveById = snapshot.Displays.ToDictionary(d => d.Identity.StableId, StringComparer.OrdinalIgnoreCase);
+        var liveById = SafeIndex.By(snapshot.Displays, d => d.Identity.StableId,
+            nameof(ProfileVariantBuilder), StringComparer.OrdinalIgnoreCase);
         var displays = new List<ProfileDisplay>();
 
         // Pass 1: resolve overrides and validate requested modes against the driver.

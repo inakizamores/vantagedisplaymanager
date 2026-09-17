@@ -125,12 +125,40 @@ public sealed class DisplayService
             });
         }
 
+        // Identity is only unique once the whole set is known: panels that share an EDID serial
+        // (common on identical monitors — issue #9) need a connector discriminator appended.
+        // Must run before the replay payload is built, so it records the resolved ids.
+        ResolveIdentities(displays);
+
         return new SystemSnapshot
         {
             CapturedAt = DateTimeOffset.Now,
             Displays = displays,
             Replay = BuildReplayPayload(paths, modes, displays, adapterPathCache),
         };
+    }
+
+    /// <summary>Rewrites each display's <c>StableId</c> so the snapshot holds no duplicates (P3).</summary>
+    internal static void ResolveIdentities(List<DisplayState> displays)
+    {
+        if (displays.Count < 2)
+            return;
+
+        var seeds = new MonitorIdentitySeed[displays.Count];
+        for (var i = 0; i < displays.Count; i++)
+            seeds[i] = new MonitorIdentitySeed(displays[i].Identity.StableId, displays[i].Identity.DeviceInstanceId);
+
+        var resolved = MonitorIdentityResolver.Resolve(seeds);
+        for (var i = 0; i < displays.Count; i++)
+        {
+            if (string.Equals(resolved[i], displays[i].Identity.StableId, StringComparison.Ordinal))
+                continue;
+
+            AppLog.Write(nameof(DisplayService),
+                $"Shared EDID identity '{displays[i].Identity.StableId}' on {displays[i].Identity.DeviceInstanceId} " +
+                $"resolved to '{resolved[i]}'.");
+            displays[i] = displays[i] with { Identity = displays[i].Identity with { StableId = resolved[i] } };
+        }
     }
 
     private static HdrInfo CaptureHdr(LUID adapterId, uint targetId)
@@ -194,7 +222,8 @@ public sealed class DisplayService
         List<DisplayState> displays,
         Dictionary<ulong, string> adapterPathCache)
     {
-        var byTarget = displays.ToDictionary(d => (d.Address.AdapterLuid, d.Address.TargetId), d => d.Identity.StableId);
+        var byTarget = SafeIndex.By(displays, d => (d.Address.AdapterLuid, d.Address.TargetId),
+            d => d.Identity.StableId, nameof(DisplayService));
 
         var replayPaths = new List<ReplayPath>(paths.Length);
         foreach (var p in paths)

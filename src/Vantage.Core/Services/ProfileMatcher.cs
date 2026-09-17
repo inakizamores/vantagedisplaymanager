@@ -13,14 +13,13 @@ public static class ProfileMatcher
 
     public static ProfileMatchResult Match(VantageProfile profile, SystemSnapshot snapshot)
     {
-        var live = snapshot.Displays.ToDictionary(d => d.Identity.StableId, d => d, StringComparer.OrdinalIgnoreCase);
-        var claimed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var assignment = Assign(profile, snapshot);
         var results = new List<DisplayMatchResult>();
 
-        foreach (var wanted in profile.Displays)
+        for (var i = 0; i < profile.Displays.Count; i++)
         {
-            if (!live.TryGetValue(wanted.Identity.StableId, out var actual) &&
-                !TryMatchByInstanceId(live, wanted.Identity.DeviceInstanceId, out actual))
+            var wanted = profile.Displays[i];
+            if (assignment[i] is not { } actual)
             {
                 results.Add(new DisplayMatchResult
                 {
@@ -30,7 +29,6 @@ public static class ProfileMatcher
                 continue;
             }
 
-            claimed.Add(actual.Identity.StableId);
             var diffs = new List<FieldDiff>();
             var toleranceOnly = false;
 
@@ -85,6 +83,8 @@ public static class ProfileMatcher
             });
         }
 
+        var claimed = assignment.Where(a => a is not null).Select(a => a!.Identity.StableId)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var unexpected = snapshot.Displays
             .Where(d => !claimed.Contains(d.Identity.StableId))
             .Select(d => d.Identity.StableId)
@@ -98,20 +98,90 @@ public static class ProfileMatcher
         };
     }
 
-    private static bool TryMatchByInstanceId(
-        Dictionary<string, DisplayState> live, string instanceId, out DisplayState actual)
+    /// <summary>
+    /// Pairs each profile display with at most one live display, and each live display with at
+    /// most one profile display. Three passes, strongest signal first, so a weak signal can
+    /// never steal a monitor from an exact match:
+    /// <list type="number">
+    /// <item>the resolved stable id — the normal path;</item>
+    /// <item>the PnP instance path — for a panel whose EDID id changed under it (firmware update);</item>
+    /// <item>the EDID id alone, best geometric fit — for identical panels whose ids only differ
+    /// by connector, covering a moved cable and profiles written before ids were disambiguated.</item>
+    /// </list>
+    /// </summary>
+    private static DisplayState?[] Assign(VantageProfile profile, SystemSnapshot snapshot)
     {
-        // Fallback for monitors whose EDID serial is blank/duplicated: match on the PnP instance path.
-        foreach (var d in live.Values)
+        var assignment = new DisplayState?[profile.Displays.Count];
+        var claimed = new bool[snapshot.Displays.Count];
+
+        // Enabled entries pick first: a display the profile wants switched off must never take
+        // a monitor away from one it wants switched on.
+        var order = Enumerable.Range(0, profile.Displays.Count)
+            .OrderByDescending(i => profile.Displays[i].Enabled)
+            .ThenBy(i => i)
+            .ToArray();
+
+        void Pass(Func<ProfileDisplay, DisplayState, bool> isCandidate, bool byBestFit = false)
         {
-            if (string.Equals(d.Identity.DeviceInstanceId, instanceId, StringComparison.OrdinalIgnoreCase))
+            foreach (var i in order)
             {
-                actual = d;
-                return true;
+                if (assignment[i] is not null)
+                    continue;
+
+                var wanted = profile.Displays[i];
+                var bestScore = int.MinValue;
+                var best = -1;
+
+                for (var j = 0; j < snapshot.Displays.Count; j++)
+                {
+                    if (claimed[j] || !isCandidate(wanted, snapshot.Displays[j]))
+                        continue;
+
+                    var score = byBestFit ? FitScore(wanted, snapshot.Displays[j]) : 0;
+                    if (score > bestScore)
+                    {
+                        bestScore = score;
+                        best = j;
+                    }
+                }
+
+                if (best < 0)
+                    continue;
+
+                claimed[best] = true;
+                assignment[i] = snapshot.Displays[best];
             }
         }
-        actual = null!;
-        return false;
+
+        Pass(static (w, d) => string.Equals(w.Identity.StableId, d.Identity.StableId, StringComparison.OrdinalIgnoreCase));
+        Pass(static (w, d) => w.Identity.DeviceInstanceId.Length > 0
+            && string.Equals(w.Identity.DeviceInstanceId, d.Identity.DeviceInstanceId, StringComparison.OrdinalIgnoreCase));
+        Pass(static (w, d) => string.Equals(
+            MonitorIdentityResolver.BaseId(w.Identity.StableId),
+            MonitorIdentityResolver.BaseId(d.Identity.StableId),
+            StringComparison.OrdinalIgnoreCase), byBestFit: true);
+
+        return assignment;
+    }
+
+    /// <summary>
+    /// How well a live display fits a profile entry, used only to pick among interchangeable
+    /// panels of the same model. Position dominates: it is what tells the left monitor from
+    /// the right one, and choosing by it means the fallback lands on the assignment that needs
+    /// the fewest mode changes instead of shuffling three identical screens at random.
+    /// </summary>
+    private static int FitScore(ProfileDisplay wanted, DisplayState live)
+    {
+        var score = 0;
+        if (wanted.PositionX == live.PositionX && wanted.PositionY == live.PositionY)
+            score += 8;
+        if (wanted.Width == live.Width && wanted.Height == live.Height)
+            score += 4;
+        if (wanted.Rotation == live.Rotation)
+            score += 2;
+        if (wanted.Primary == live.IsPrimary)
+            score += 1;
+        return score;
     }
 
     private static void Check(List<FieldDiff> diffs, string field, string expected, string actualValue, bool ok)

@@ -3,6 +3,35 @@
 All notable changes to Vantage Display Manager are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [1.0.2] — 2026-09-17
+
+### Fixed
+- **Identical monitors no longer break saving, applying or refreshing.** A monitor's identity
+  was its EDID vendor + product + serial, but plenty of panels ship with the same serial on
+  every unit of a model — three ASUS ROG Strix XG438Q all report `AUS43E1_125727`. That made
+  the identity a *model* id, so the display list was keyed on duplicate keys and any refresh
+  or save failed with "An item with the same key has already been added. Key: …"
+  ([#9](https://github.com/inakizamores/vantagedisplaymanager/issues/9)). Identity now falls
+  back to the GPU connector each panel is plugged into when, and only when, a serial is
+  shared — so ids are unchanged on every machine that never had a collision, and the panels
+  that did have one keep distinct, reboot-stable identities instead of being numbered in
+  whatever order Windows happened to enumerate them.
+- **Existing presets are repaired automatically.** A preset saved with the old colliding ids
+  is re-keyed on load from the connector path it already recorded, so it keeps matching the
+  machine it was captured on with nothing to redo. Matching also gained a last-resort pass
+  that pairs same-model panels by position, so a preset still applies after its cables are
+  swapped between ports.
+- **Identical monitors are now distinguishable in the app.** Displays sharing a model name
+  are labelled with their Windows display number ("ASUS XG438 (Display 2)") instead of
+  appearing as several identical rows.
+
+### Changed
+- Indexing displays by identity can no longer throw anywhere in the codebase: a duplicate is
+  logged and the first entry kept, so an unforeseen collision costs one display's worth of
+  precision rather than the whole feature.
+- Test suite grew from 37 to 60, over a fixture recorded from the reporting machine's three
+  identical panels.
+
 ## [1.0.1] — 2026-08-09
 
 ### Fixed
