@@ -11,7 +11,14 @@ public sealed record EdidInfo(
     int PhysicalWidthMm,
     int PhysicalHeightMm)
 {
-    /// <summary>Stable cross-session identity: vendor + product + best-available serial.</summary>
+    /// <summary>
+    /// Stable cross-session identity: vendor + product + best-available serial.
+    ///
+    /// Stable, but <b>not guaranteed unique</b>: many vendors burn one serial into every unit
+    /// of a model, so identical panels collide here (issue #9). Callers must not use this as a
+    /// key directly — <c>MonitorIdentityResolver</c> resolves a whole display set into distinct
+    /// ids, and that is what lands in <c>MonitorIdentity.StableId</c>.
+    /// </summary>
     public string StableId =>
         $"{ManufacturerCode}{ProductCode:X4}_{(string.IsNullOrWhiteSpace(SerialText) ? SerialNumber.ToString() : SerialText.Trim())}";
 }
