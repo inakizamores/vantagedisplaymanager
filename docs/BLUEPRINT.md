@@ -73,6 +73,29 @@ handles (`DisplayIdSet` = adapter LUID + source id + target id) are resolved fre
 saved profiles store only stable identity. LUID re-mapping by adapter device path at load time
 (DisplayMagician's `PatchWindowsDisplayConfig` technique) patches the raw replay payload.
 
+**Identity must be unique, not merely stable.** An EDID serial is only as unique as the vendor
+made it, and identical panels of one model routinely share it — three ASUS ROG Strix XG438Q all
+report `AUS43E1_125727` (issue #9). That makes the "stable ID" a *model* ID, and every index
+keyed on it collides. `MonitorIdentityResolver` therefore resolves the whole snapshot at once
+and appends a connector discriminator (the PnP path's `UID` token) — but **only** to ids that
+actually collide, so the overwhelming majority of machines keep byte-identical ids and their
+existing profiles keep matching. Resolution is deterministic and independent of enumeration
+order by construction: numbering duplicates in the order Windows happened to return them would
+hand one monitor another's settings after a reboot, which is a worse failure than the crash it
+replaced. Two consequences follow for the rest of the engine:
+
+- `ProfileStore` re-keys profiles written before disambiguation, on load *and* on save, using
+  the device instance ID each entry already stored — the same input the live resolver uses, so
+  a repaired profile lines up with the hardware it was captured on with nothing to redo.
+- `ProfileMatcher` pairs profile displays to live displays **one-to-one**, strongest signal
+  first: resolved stable ID → PnP instance path → shared EDID ID by best geometric fit. Without
+  exclusivity, interchangeable panels of one model would all claim the same monitor; the
+  geometric fallback is also what keeps a profile working after its cables are swapped between
+  ports.
+
+Indexing displays by identity uses `SafeIndex`, never `ToDictionary`: a duplicate from any
+future source costs one display's worth of precision and a log line, not the whole operation.
+
 ### P4. One owned CCD interop core with OS-version gating
 All of it — topology, target names, HDR (both API generations), SDR white level, DPI scaling —
 flows through `QueryDisplayConfig` / `SetDisplayConfig` / `DisplayConfigGet/SetDeviceInfo`.

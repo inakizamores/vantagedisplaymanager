@@ -56,7 +56,7 @@ as a thing you can return to.
 | ⌨️ **Global hotkeys** | Assign a key combo to any profile; works system-wide even when Vantage runs tray-only |
 | 📌 **Start menu shortcuts** | Turn any preset into a Start menu (or desktop) shortcut carrying its own monitor-layout icon — or one you pick. Opening it switches displays without opening the app: the launched process lives about 35 ms, because the fast paths run before WPF is ever loaded |
 | 🎨 **HDR + color depth done right** | Windows 11 24H2 HDR API with legacy fallback, and output bpc pinned per profile via the GPU's own API (10 bpc for HDR, strictly 8 bpc for SDR) — no more washed-out colors from depth stuck between modes |
-| 🧬 **Profiles that survive** | Monitors identified by EDID serial — profiles survive reboots, driver updates, port swaps, and hybrid-GPU adapter shuffles |
+| 🧬 **Profiles that survive** | Monitors identified by EDID serial, and by the port they're plugged into when a vendor gives identical panels the same serial — profiles survive reboots, driver updates, port swaps, and hybrid-GPU adapter shuffles |
 | 💾 **Reinstall-proof data** | Profiles and settings are plain JSON in `Documents\Vantage Display Manager` — survive uninstalls, copy to a new PC as one folder, ride along with OneDrive |
 | 🪟 **Native Windows 11** | Real OS window frame and caption buttons, Mica, dark/light theme, and your exact accent palette from Personalization |
 | 🫥 **Tray-first** | Instant start, quiet sign-in launch ("Start with Windows"), profiles one right-click away |
@@ -159,6 +159,11 @@ in the background at launch. Nothing interrupts you — the card at the bottom o
 simply changes from *Check for updates* to *Update* when there's something new. Choosing it shows
 that version's release notes, then downloads with a progress bar and restarts into the new build.
 
+Updates are **delta downloads**: moving from one release to the next transfers only the files
+that actually changed, typically a couple of MB rather than the ~75 MB full package. The full
+package is published alongside it, so a client that can't apply a delta — or is coming from an
+older version — falls back to it automatically.
+
 Release notes are extracted from [CHANGELOG.md](CHANGELOG.md) by the release workflow and embedded
 in the update package, so the app shows exactly what the release page shows, without calling the
 GitHub API.
@@ -204,8 +209,13 @@ The engine is built on the Windows CCD API (`QueryDisplayConfig` / `SetDisplayCo
 normalized, versioned profile schema on top:
 
 - **Identity** — monitors are keyed by EDID vendor + product + serial read from the PnP
-  registry, with instance-ID fallback. Adapter LUIDs (which change every boot) are re-mapped
-  by adapter device path at apply time.
+  registry, with instance-ID fallback. Because a serial is only as unique as the vendor made
+  it — identical panels of one model often share one — ids are resolved across the whole
+  display set, and the ones that collide get the GPU connector they're attached to appended.
+  Only colliding ids change, so a machine that never had a collision keeps exactly the ids it
+  had. Profiles written before this are re-keyed on load, and matching pairs profile displays
+  to live ones strictly one-to-one. Adapter LUIDs (which change every boot) are re-mapped by
+  adapter device path at apply time.
 - **Matching** — "is this profile active?" is a per-field semantic comparison with explicit
   tolerances (59.94 Hz ≈ 60 Hz), never a raw struct comparison. A mismatch tells you *what*
   differs.

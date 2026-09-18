@@ -8,7 +8,13 @@ namespace Vantage.Core.Models;
 /// </summary>
 public sealed record MonitorIdentity
 {
-    /// <summary>Primary key, e.g. "SAM7454_HNTX500005"; falls back to "NOEDID_&lt;instanceId&gt;".</summary>
+    /// <summary>
+    /// Primary key, e.g. "SAM7454_HNTX500005"; falls back to "NOEDID_&lt;instanceId&gt;".
+    ///
+    /// Distinct within a snapshot, guaranteed by <see cref="Services.MonitorIdentityResolver"/>:
+    /// panels sharing an EDID serial carry a connector discriminator here
+    /// ("AUS43E1_125727#UID37123"), which plain EDID-derived ids do not.
+    /// </summary>
     public required string StableId { get; init; }
 
     /// <summary>PnP device instance ID, e.g. DISPLAY\SAM7454\5&amp;35454913&amp;0&amp;UID4355.</summary>
