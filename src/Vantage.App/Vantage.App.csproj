@@ -23,7 +23,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <PackageReference Include="Velopack" Version="1.2.0" />
+    <PackageReference Include="Velopack" Version="1.2.158" />
     <PackageReference Include="H.NotifyIcon.Wpf" Version="2.3.2" />
     <PackageReference Include="WPF-UI" Version="4.3.0" />
   </ItemGroup>
